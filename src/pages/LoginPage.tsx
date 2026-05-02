@@ -141,6 +141,20 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
   const [sendingCode, setSendingCode] = useState(false);
   const [codeCountdown, setCodeCountdown] = useState(0);
 
+  // 数学验证码（防机器人注册）
+  const genMathChallenge = () => {
+    const ops = ['+', '-', '×'] as const;
+    const op = ops[Math.floor(Math.random() * 3)];
+    let a = Math.floor(Math.random() * 9) + 1;
+    let b = Math.floor(Math.random() * 9) + 1;
+    if (op === '-' && b > a) [a, b] = [b, a]; // 确保结果非负
+    const answer = op === '+' ? a + b : op === '-' ? a - b : a * b;
+    return { question: `${a} ${op} ${b} = ?`, answer };
+  };
+  const [mathChallenge, setMathChallenge] = useState(() => genMathChallenge());
+  const [mathInput, setMathInput] = useState('');
+  const [mathError, setMathError] = useState('');
+
   // 切换视图时清空错误
   const switchView = useCallback((v: AuthView) => {
     setView(v);
@@ -198,7 +212,16 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
   // ── 发送验证码 ──
   const handleSendCode = async () => {
     setError('');
+    setMathError('');
     if (!validateEmail()) return;
+    // 数学验证码校验
+    const ans = parseInt(mathInput.trim(), 10);
+    if (isNaN(ans) || ans !== mathChallenge.answer) {
+      setMathError('答案不正确，请重新计算');
+      setMathChallenge(genMathChallenge());
+      setMathInput('');
+      return;
+    }
     setSendingCode(true);
     try {
       await sendVerifyCode(email.trim().toLowerCase());
@@ -420,6 +443,45 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
                 <Field label="邮箱地址" type="email" placeholder="your@email.com"
                   value={email} onChange={v => { setEmail(v); setEmailError(''); }}
                   onBlur={validateEmail} error={emailError} disabled={sendingCode} />
+
+                {/* 数学验证码（防机器人） */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 13, color: 'var(--t2)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                    安全验证
+                    <span style={{ fontSize: 11, color: 'var(--t3)' }}>（防机器人）</span>
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      padding: '10px 16px', borderRadius: 9, background: 'rgba(240,180,41,0.08)',
+                      border: '1px solid rgba(240,180,41,0.25)', fontSize: 16, fontWeight: 700,
+                      color: 'var(--primary)', letterSpacing: 2, flexShrink: 0,
+                    }}>
+                      {mathChallenge.question}
+                    </div>
+                    <input
+                      type="number"
+                      placeholder="答案"
+                      value={mathInput}
+                      onChange={e => { setMathInput(e.target.value); setMathError(''); }}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSendCode(); }}
+                      disabled={sendingCode}
+                      style={{
+                        width: 80, padding: '10px 12px', borderRadius: 9, boxSizing: 'border-box',
+                        background: 'var(--bg3)', border: `1px solid ${mathError ? 'rgba(239,68,68,0.6)' : 'var(--border)'}`,
+                        color: 'var(--t1)', fontSize: 15, fontWeight: 700, outline: 'none', textAlign: 'center',
+                      }}
+                      onFocus={e => (e.target.style.borderColor = '#f0b429')}
+                      onBlur={e => (e.target.style.borderColor = mathError ? 'rgba(239,68,68,0.6)' : 'var(--border)')}
+                    />
+                    <button
+                      onClick={() => { setMathChallenge(genMathChallenge()); setMathInput(''); setMathError(''); }}
+                      title="换一题"
+                      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', color: 'var(--t3)', fontSize: 13 }}
+                    >🔄</button>
+                  </div>
+                  {mathError && <p style={{ fontSize: 11, color: '#f87171', marginTop: 4, marginBottom: 0 }}>{mathError}</p>}
+                </div>
+
                 <button onClick={handleSendCode} disabled={sendingCode} style={{
                   ...btnPrimary,
                   background: sendingCode ? 'var(--bg3)' : 'linear-gradient(135deg,#f0b429,#e8920a)',

@@ -253,19 +253,32 @@ export async function fetchNewsWithSentiment(): Promise<FetchNewsResult> {
   const cached = getCache<FetchNewsResult>(cacheKey);
   if (cached) return cached;
 
-  const allSources = [...MACRO_RSS_SOURCES, ...BLOCKCHAIN_RSS_SOURCES, ...CRYPTO_RSS_SOURCES, ...CN_RSS_SOURCES];
+  // 优先中文源（不依赖 allorigins 代理），再加少量英文源，减少429
+  const prioritySources = [...CN_RSS_SOURCES, ...MACRO_RSS_SOURCES.slice(0, 1), ...BLOCKCHAIN_RSS_SOURCES.slice(0, 1), ...CRYPTO_RSS_SOURCES.slice(0, 1)];
   const allItems: CategorizedNewsItem[] = [];
 
-  // 并发抓取所有源（失败的忽略）
-  const results = await Promise.allSettled(
-    allSources.map(({ url, source, category }) =>
+  // 分批请求：先并发中文源，再串行英文源，避免代理被限流
+  const cnResults = await Promise.allSettled(
+    CN_RSS_SOURCES.map(({ url, source, category }) =>
       fetchRSS(url, source, category, 6)
     )
   );
-
-  results.forEach((r) => {
+  cnResults.forEach((r) => {
     if (r.status === 'fulfilled') allItems.push(...r.value);
   });
+
+  // 如果中文源已够，英文源依次尝试，有一个成功就停
+  const enSources = [...MACRO_RSS_SOURCES.slice(0, 1), ...BLOCKCHAIN_RSS_SOURCES.slice(0, 1), ...CRYPTO_RSS_SOURCES.slice(0, 1)];
+  for (const { url, source, category } of enSources) {
+    try {
+      const items = await fetchRSS(url, source, category, 4);
+      allItems.push(...items);
+    } catch {
+      // 单源失败继续
+    }
+    // 每个英文源请求间隔300ms，避免代理限流
+    await new Promise(r => setTimeout(r, 300));
+  }
 
   // 按时间排序，去重（同标题）
   const seen = new Set<string>();
@@ -292,6 +305,9 @@ export async function fetchNewsWithSentiment(): Promise<FetchNewsResult> {
   const displayNews = selectDisplayNews(translated);
 
   const result: FetchNewsResult = { displayNews, allNews: translated };
-  setCache(cacheKey, result, 600); // 10分钟缓存
+  setCache(cacheKey, result, 1800); // 30分钟缓存，减少429
   return result;
 }
+
+// prioritySources 仅用于类型推断，避免 TS unused warning
+void (prioritySources as unknown);

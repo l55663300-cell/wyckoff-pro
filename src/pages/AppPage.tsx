@@ -20,6 +20,7 @@ import { CreditsModal } from '../components/modals/CreditsModal';
 import { NotifPanel } from '../components/modals/NotifPanel';
 import { AvatarDropdown } from '../components/modals/AvatarDropdown';
 import { addQueryRecord } from '../utils/queryStore';
+import { addFavCoin, removeFavCoin, loadFavCoins } from '../utils/queryStore';
 import { loadNotices, getUnreadCount, markAllRead } from '../utils/noticeStore';
 import { useToast } from '../components/Toast';
 
@@ -183,6 +184,14 @@ export default function AppPage() {
   const [unreadNotif] = useState(() => getUnreadCount());
   // 指标栏折叠（小屏时可隐藏）
   const [indicatorExpanded, setIndicatorExpanded] = useState(true);
+  // 收藏币种
+  const [favCoins, setFavCoins] = useState<string[]>(() => user ? loadFavCoins(user.uid) : []);
+  // 是否显示搜索候选下拉
+  const [showSymSuggestions, setShowSymSuggestions] = useState(false);
+  // 新手引导蒙版（第一次登录后触发）
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try { return !localStorage.getItem('wyckoff_onboarding_done_v1'); } catch { return false; }
+  });
 
   // 新闻独立30分钟刷新
   useEffect(() => {
@@ -356,25 +365,57 @@ export default function AppPage() {
     return () => { if (autoRefreshTimer.current) clearInterval(autoRefreshTimer.current); };
   }, [autoRefresh, symbol, activeTimeframe]);
 
-  // 微信推送
+  // 微信推送 + 邮件信号推送
   useEffect(() => {
-    if (!result || !pushConfig.enabled || !pushConfig.sendKey) return;
+    if (!result || !user) return;
     const dir = result.scoring.direction;
     if (dir === 'neutral') return;
     if (result.scoring.probability < pushConfig.minProbability) return;
-    const { title, body } = buildEntryAlertMessage(
-      result.symbol, result.price, dir as 'long' | 'short',
-      result.scoring.probability, result.wyckoff.phase, result.wyckoff.pattern,
-      result.risk.entryLow, result.risk.entryHigh, result.risk.stopLoss,
-      result.risk.target1, result.risk.target2, result.risk.target3,
-      result.risk.riskReward, result.risk.positionSize,
-      result.wyckoff.compositeManBehavior,
-      result.sentiment.fearGreed, result.sentiment.fearGreedLabel,
-    );
-    sendWechatPush(pushConfig, title, body).then((res) => {
-      setPushStatus(res.ok ? '✅ 微信推送已发送' : `⚠️ 推送失败: ${res.msg}`);
-      setTimeout(() => setPushStatus(null), 5000);
-    });
+
+    // 微信推送
+    if (pushConfig.enabled && pushConfig.sendKey) {
+      const { title, body } = buildEntryAlertMessage(
+        result.symbol, result.price, dir as 'long' | 'short',
+        result.scoring.probability, result.wyckoff.phase, result.wyckoff.pattern,
+        result.risk.entryLow, result.risk.entryHigh, result.risk.stopLoss,
+        result.risk.target1, result.risk.target2, result.risk.target3,
+        result.risk.riskReward, result.risk.positionSize,
+        result.wyckoff.compositeManBehavior,
+        result.sentiment.fearGreed, result.sentiment.fearGreedLabel,
+      );
+      sendWechatPush(pushConfig, title, body).then((res) => {
+        setPushStatus(res.ok ? '✅ 微信推送已发送' : `⚠️ 推送失败: ${res.msg}`);
+        setTimeout(() => setPushStatus(null), 5000);
+      });
+    }
+
+    // 邮件信号推送（有登录邮箱时自动发送）
+    if (user.email) {
+      fetch('/api/email/signal-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: user.email,
+          symbol: result.symbol,
+          timeframe: result.activeTimeframe,
+          direction: dir as 'long' | 'short',
+          score: result.scoring.score,
+          probability: result.scoring.probability,
+          phase: result.wyckoff.phase,
+          price: result.price,
+          entryLow: result.risk.entryLow,
+          entryHigh: result.risk.entryHigh,
+          stopLoss: result.risk.stopLoss,
+          target1: result.risk.target1,
+          riskReward: result.risk.riskReward,
+        }),
+      }).then(r => {
+        if (r.ok) {
+          setPushStatus(prev => prev ? prev + ' · ✉️ 邮件已发送' : '✉️ 信号邮件已发送');
+          setTimeout(() => setPushStatus(null), 5000);
+        }
+      }).catch(() => {});
+    }
   }, [result]);
 
   // K线（1000条）
@@ -476,20 +517,65 @@ export default function AppPage() {
           </div>
 
           {/* 搜索 */}
-          <div style={{ padding: '8px 10px' }}>
+          <div style={{ padding: '8px 10px', position: 'relative' }}>
             <input
               value={symSearch}
-              onChange={e => { setSymSearch(e.target.value); setSymInputErr(''); }}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddSym(); }}
-              placeholder="搜索或添加..."
+              onChange={e => { setSymSearch(e.target.value); setSymInputErr(''); setShowSymSuggestions(true); }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  handleAddSym();
+                  setShowSymSuggestions(false);
+                }
+                if (e.key === 'Escape') { setShowSymSuggestions(false); setSymSearch(''); }
+              }}
+              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = 'var(--primary)'; if (symSearch) setShowSymSuggestions(true); }}
+              onBlur={e => {
+                (e.target as HTMLInputElement).style.borderColor = 'var(--border)';
+                setTimeout(() => setShowSymSuggestions(false), 150);
+              }}
+              placeholder="搜索或输入币种代码..."
               style={{
                 width: '100%', padding: '7px 10px', borderRadius: 8, boxSizing: 'border-box',
                 background: 'var(--bg3)', border: '1px solid var(--border)',
                 color: 'var(--t1)', fontSize: 12, outline: 'none', fontFamily: 'inherit',
               }}
-              onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
-              onBlur={e => (e.target.style.borderColor = 'var(--border)')}
             />
+            {/* 搜索候选下拉（输入时显示匹配的币种，含+按钮直接添加） */}
+            {showSymSuggestions && symSearch.trim().length >= 1 && (() => {
+              const raw = symSearch.trim().toUpperCase();
+              const full = raw.endsWith('USDT') ? raw : raw + 'USDT';
+              const alreadyIn = watchlist.includes(full);
+              const isValidFormat = /^[A-Z0-9]+USDT$/.test(full) && full.length >= 6;
+              const hasChinese = /[\u4e00-\u9fa5]/.test(raw);
+              return (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 10, right: 10, zIndex: 200,
+                  background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.3)', overflow: 'hidden',
+                }}>
+                  {hasChinese ? (
+                    <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--red)' }}>⚠ 不支持中文，请输入如 BTCUSDT 或 BTC</div>
+                  ) : alreadyIn ? (
+                    <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--t3)' }}>"{full}" 已在列表中</div>
+                  ) : !isValidFormat ? (
+                    <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--t3)' }}>请输入正确格式，如 BTC 或 BTCUSDT</div>
+                  ) : (
+                    <div
+                      onClick={() => { handleAddSym(); setShowSymSuggestions(false); }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', cursor: 'pointer', transition: 'background .1s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '')}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>{full}</span>
+                      <span style={{
+                        width: 22, height: 22, borderRadius: 6, background: 'var(--primary)', color: '#000',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, flexShrink: 0,
+                      }}>+</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {symInputErr && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{symInputErr}</div>}
           </div>
 
@@ -502,6 +588,7 @@ export default function AppPage() {
               const isDefault = DEFAULT_SYMBOLS.includes(sym as any);
               // 是否有缓存
               const hasCached = !!getCached(sym, activeTimeframe);
+              const isFav = user ? favCoins.includes(sym) : false;
               return (
                 <div
                   key={sym}
@@ -533,6 +620,24 @@ export default function AppPage() {
                       <span style={{ fontSize: 10, fontWeight: 600, color: isPos ? 'var(--green)' : 'var(--red)' }}>
                         {isPos ? '+' : ''}{formatPercent(priceChange)}
                       </span>
+                    )}
+                    {/* ★ 收藏按钮 */}
+                    {user && (
+                      <span
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (isFav) {
+                            removeFavCoin(user.uid, sym);
+                          } else {
+                            addFavCoin(user.uid, sym);
+                          }
+                          setFavCoins(loadFavCoins(user.uid));
+                        }}
+                        title={isFav ? '取消收藏' : '收藏'}
+                        style={{ fontSize: 12, color: isFav ? '#f0b429' : 'var(--t4)', cursor: 'pointer', padding: '0 1px', lineHeight: 1, transition: 'color .15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#f0b429')}
+                        onMouseLeave={e => (e.currentTarget.style.color = isFav ? '#f0b429' : 'var(--t4)')}
+                      >★</span>
                     )}
                     {!isDefault && (
                       <span
@@ -1054,6 +1159,65 @@ export default function AppPage() {
           reason={quotaBlockReason}
           uid={user?.uid}
         />
+      )}
+
+      {/* 新手引导蒙版（首次登录后显示） */}
+      {showOnboarding && user && (
+        <div
+          onClick={() => { setShowOnboarding(false); try { localStorage.setItem('wyckoff_onboarding_done_v1', '1'); } catch {} }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 4000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--bg2)', border: '1.5px solid var(--border)', borderRadius: 20,
+              padding: '40px 36px', maxWidth: 460, width: '90%', textAlign: 'center',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+            }}
+          >
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: 'var(--t1)' }}>欢迎使用 AI威科夫Pro</h2>
+            <p style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.7, marginBottom: 28 }}>
+              3步开始你的第一次专业分析
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+              {[
+                { step: 1, icon: '🪙', title: '选择币种', desc: '在左侧边栏搜索或点击自选列表中的任意币种' },
+                { step: 2, icon: '⏱', title: '选择分析周期', desc: '在顶部选择 15m / 1H / 4H / 1D 其中一个周期' },
+                { step: 3, icon: '🤖', title: '点击 AI分析', desc: '点击右上角「🤖 AI分析」按钮，获取完整策略报告' },
+              ].map(item => (
+                <div key={item.step} style={{
+                  display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+                  background: 'var(--bg3)', borderRadius: 12, textAlign: 'left',
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                    background: 'linear-gradient(135deg,#f0b429,#e8920a)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 800, color: '#000',
+                  }}>{item.step}</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', marginBottom: 3 }}>
+                      {item.icon} {item.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--t2)' }}>{item.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => { setShowOnboarding(false); try { localStorage.setItem('wyckoff_onboarding_done_v1', '1'); } catch {} }}
+              style={{
+                width: '100%', padding: '12px 0', borderRadius: 12, border: 'none',
+                background: 'linear-gradient(135deg,#f0b429,#e8920a)',
+                color: '#000', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+              }}
+            >
+              开始使用 →
+            </button>
+            <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 12 }}>点击任意处关闭 · 下次不再显示</div>
+          </div>
+        </div>
       )}
     </div>
   );

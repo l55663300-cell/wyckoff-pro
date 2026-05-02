@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { loadContent } from '../utils/contentStore';
 import { loadNotices, getUnreadCount } from '../utils/noticeStore';
+import { getActivePlans, type SubscriptionPlan } from '../utils/subscriptionStore';
 
 export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void }) {
   const { navigate } = useApp();
@@ -9,6 +10,19 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
   const [bannerVisible, setBannerVisible] = useState(true);
   const content = loadContent();
   const noticeCount = getUnreadCount();
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+
+  useEffect(() => {
+    getActivePlans().then(setPlans).catch(() => {});
+  }, []);
+
+  // 静态后备套餐（数据库为空时展示）
+  const staticPlans = [
+    { id: 'basic', name: '基础版', priceUsd: 68, durationDays: 30, dailyLimit: 30, popular: false, perks: ['每日30次AI分析', '500+币种支持', '全功能访问', '实时行情数据'], cycle: 'monthly' as const },
+    { id: 'pro', name: '专业版', priceUsd: 168, durationDays: 30, dailyLimit: 100, popular: true, perks: ['每日100次AI分析', '500+币种支持', '全功能访问', '优先响应速度', '策略历史记录'], cycle: 'monthly' as const },
+    { id: 'elite', name: '旗舰版', priceUsd: 388, durationDays: 90, dailyLimit: 200, popular: false, perks: ['每日200次AI分析', '500+币种支持', '最快响应速度', '邮件信号推送', '专属客服支持'], cycle: 'quarterly' as const },
+  ];
+  const displayPlans = plans.length > 0 ? plans : staticPlans;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg1)', color: 'var(--t1)' }}>
@@ -190,16 +204,12 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
       {/* 定价 */}
       <div style={{ padding: '80px 20px', background: 'var(--bg2)' }}>
         <h2 style={{ textAlign: 'center', fontSize: 32, fontWeight: 700, marginBottom: 12 }}>简单透明的定价</h2>
-        <p style={{ textAlign: 'center', color: 'var(--t2)', marginBottom: 48 }}>按次计费，灵活充值，无月费无绑定</p>
-        <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap', maxWidth: 900, margin: '0 auto' }}>
-          {[
-            { name: '入门套餐', price: '¥18', queries: '20次 AI查询', popular: false, perks: ['全功能访问', '500+币种支持', '实时行情数据'] },
-            { name: '标准套餐', price: '¥58', queries: '100次 AI查询', popular: true, perks: ['全功能访问', '500+币种支持', '优先响应速度', '策略历史记录'] },
-            { name: '专业套餐', price: '¥168', queries: '500次 AI查询', popular: false, perks: ['全功能访问', '500+币种支持', '最快响应速度', '微信推送提醒', '专属客服支持'] },
-          ].map(plan => (
-            <div key={plan.name} style={{
+        <p style={{ textAlign: 'center', color: 'var(--t2)', marginBottom: 48 }}>灵活订阅，无隐藏费用</p>
+        <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap', maxWidth: 960, margin: '0 auto' }}>
+          {displayPlans.slice(0, 4).map(plan => (
+            <div key={plan.id} style={{
               background: 'var(--bg1)', border: `1px solid ${plan.popular ? '#f0b429' : 'var(--border)'}`,
-              borderRadius: 16, padding: '32px 28px', width: 260, position: 'relative',
+              borderRadius: 16, padding: '32px 28px', width: 260, position: 'relative', flexShrink: 0,
             }}>
               {plan.popular && (
                 <div style={{
@@ -209,18 +219,24 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
                 }}>最受欢迎</div>
               )}
               <div style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 8 }}>{plan.name}</div>
-              <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--t1)' }}>{plan.price}<span style={{ fontSize: 16, fontWeight: 400, color: 'var(--t2)' }}> / 包</span></div>
-              <div style={{ fontSize: 13, color: '#f0b429', margin: '8px 0 20px' }}>{plan.queries}</div>
-              <ul style={{ listStyle: 'none', marginBottom: 24 }}>
-                {plan.perks.map(p => (
-                  <li key={p} style={{ fontSize: 13, color: 'var(--t2)', padding: '5px 0' }}>✓ <span style={{ color: 'var(--green)' }}></span>{p}</li>
+              <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--t1)' }}>
+                ¥{plan.priceUsd}<span style={{ fontSize: 16, fontWeight: 400, color: 'var(--t2)' }}>
+                  {' '}/ {plan.durationDays >= 90 ? '季' : plan.durationDays >= 365 ? '年' : '月'}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: '#f0b429', margin: '8px 0 20px' }}>
+                每日 {plan.dailyLimit} 次 AI查询
+              </div>
+              <ul style={{ listStyle: 'none', marginBottom: 24, padding: 0 }}>
+                {(plan.perks ?? []).map(p => (
+                  <li key={p} style={{ fontSize: 13, color: 'var(--t2)', padding: '5px 0' }}>✓ {p}</li>
                 ))}
               </ul>
               <button onClick={() => openLogin()} style={{
                 width: '100%', padding: 12, borderRadius: 10,
                 background: 'linear-gradient(135deg, #f0b429, #e8920a)',
                 color: '#000', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer',
-              }}>立即购买</button>
+              }}>立即订阅</button>
             </div>
           ))}
         </div>

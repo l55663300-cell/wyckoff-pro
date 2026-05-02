@@ -152,6 +152,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const consumeQuota = useCallback(async (): Promise<QuotaCheckResult> => {
     const cur = userRef.current;
     if (!cur) return { allowed: false, reason: '请先登录' };
+    // 管理员账号无限次使用，不走订阅配额检查
+    if (cur.isAdmin) return { allowed: true, remaining: { daily: 9999, hourly: 9999 } };
     return checkAndConsumeQuota(cur.uid);
   }, []);
 

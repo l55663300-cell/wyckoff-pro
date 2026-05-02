@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 import {
   loadQueries, calcAccuracy, getWeeklyTrend, labelQueryOutcome,
   loadFavCoins, saveFavCoins, addFavCoin, removeFavCoin,
@@ -36,7 +37,66 @@ export default function UserPage() {
   const [sub, setSub] = useState<UserSubscription | null>(null);
   const [quota, setQuota] = useState<{ daily: number; total: number; expireAt: string | null; isActive: boolean }>({ daily: 0, total: 0, expireAt: null, isActive: false });
 
+  // 修改密码弹窗
+  const [showPwModal, setShowPwModal] = useState(false);
+  const [pwOld, setPwOld] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwNew2, setPwNew2] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState('');
+
+  // 修改邮箱弹窗
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+
+  // 修改密码处理
+  const handleChangePassword = async () => {
+    setPwError('');
+    if (!pwNew || pwNew.length < 8) { setPwError('新密码至少8位'); return; }
+    if (pwNew !== pwNew2) { setPwError('两次密码不一致'); return; }
+    if (!/(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d])/.test(pwNew)) {
+      setPwError('密码需包含字母、数字和特殊字符');
+      return;
+    }
+    setPwLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pwNew });
+      if (error) throw error;
+      showToast('密码修改成功 ✅');
+      setShowPwModal(false);
+      setPwOld(''); setPwNew(''); setPwNew2('');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setPwError(msg || '修改失败，请重试');
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
+  // 修改邮箱处理
+  const handleChangeEmail = async () => {
+    setEmailError('');
+    if (!newEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) {
+      setEmailError('请输入正确的邮箱格式');
+      return;
+    }
+    setEmailLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+      if (error) throw error;
+      setEmailSent(true);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setEmailError(msg || '修改失败，请重试');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
 
   // 加载所有真实数据
   const reloadData = useCallback(async () => {
@@ -511,10 +571,10 @@ export default function UserPage() {
               <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginTop: 16 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>账户安全</div>
                 {[
-                  { icon: '🔑', title: '登录密码', desc: '建议使用8位以上，含字母、数字和特殊字符', status: '已设置', statusColor: 'var(--green)', action: '修改', comingSoon: false },
-                  { icon: '📧', title: '邮箱验证', desc: user.email, status: '已验证', statusColor: 'var(--green)', action: '重发', comingSoon: false },
-                  { icon: '📱', title: '手机号绑定', desc: '即将上线，绑定手机号后可用于找回密码', status: '未绑定', statusColor: '#f0b429', action: '绑定', comingSoon: true },
-                  { icon: '🔒', title: '两步验证（2FA）', desc: '即将上线，开启后登录需额外验证，大幅提升账号安全', status: '未开启', statusColor: '#f0b429', action: '开启', comingSoon: true },
+                  { icon: '🔑', title: '登录密码', desc: '建议使用8位以上，含字母、数字和特殊字符', status: '已设置', statusColor: 'var(--green)', action: '修改', comingSoon: false, onClick: () => { setPwError(''); setPwOld(''); setPwNew(''); setPwNew2(''); setShowPwModal(true); } },
+                  { icon: '📧', title: '邮箱地址', desc: user.email, status: '已验证', statusColor: 'var(--green)', action: '修改', comingSoon: false, onClick: () => { setEmailError(''); setNewEmail(''); setEmailSent(false); setShowEmailModal(true); } },
+                  { icon: '📱', title: '手机号绑定', desc: '即将上线，绑定手机号后可用于找回密码', status: '未绑定', statusColor: '#f0b429', action: '绑定', comingSoon: true, onClick: () => {} },
+                  { icon: '🔒', title: '两步验证（2FA）', desc: '即将上线，开启后登录需额外验证，大幅提升账号安全', status: '未开启', statusColor: '#f0b429', action: '开启', comingSoon: true, onClick: () => {} },
                 ].map((item, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>{item.icon}</div>
@@ -526,7 +586,7 @@ export default function UserPage() {
                       <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{item.desc}</div>
                     </div>
                     <span style={{ fontSize: 11, fontWeight: 600, color: item.statusColor }}>{item.status}</span>
-                    <button onClick={() => showToast(item.comingSoon ? `${item.title}功能即将开放，敬请期待` : `${item.action}操作...`)} disabled={item.comingSoon} style={{ marginLeft: 12, padding: '5px 12px', borderRadius: 6, fontSize: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--t2)', cursor: item.comingSoon ? 'not-allowed' : 'pointer', opacity: item.comingSoon ? 0.4 : 1 }}>{item.action}</button>
+                    <button onClick={item.comingSoon ? () => showToast(`${item.title}功能即将开放，敬请期待`) : item.onClick} disabled={item.comingSoon} style={{ marginLeft: 12, padding: '5px 12px', borderRadius: 6, fontSize: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--t2)', cursor: item.comingSoon ? 'not-allowed' : 'pointer', opacity: item.comingSoon ? 0.4 : 1 }}>{item.action}</button>
                   </div>
                 ))}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0' }}>
@@ -582,6 +642,70 @@ export default function UserPage() {
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#f0b429', color: '#000', fontSize: 12, fontWeight: 600, padding: '8px 18px', borderRadius: 8, zIndex: 9999 }}>
           ✓ {toast}
+        </div>
+      )}
+
+      {/* 修改密码弹窗 */}
+      {showPwModal && (
+        <div onClick={() => setShowPwModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg2)', border: '1.5px solid var(--border)', borderRadius: 16, padding: '28px 28px', maxWidth: 380, width: '90%' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>🔑 修改登录密码</div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: 'var(--t2)', display: 'block', marginBottom: 5 }}>新密码</label>
+              <input type="password" value={pwNew} onChange={e => setPwNew(e.target.value)}
+                placeholder="8位以上，含字母+数字+特殊字符"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--t1)', fontSize: 13, outline: 'none' }} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: 'var(--t2)', display: 'block', marginBottom: 5 }}>确认新密码</label>
+              <input type="password" value={pwNew2} onChange={e => setPwNew2(e.target.value)}
+                placeholder="再次输入新密码"
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--t1)', fontSize: 13, outline: 'none' }} />
+            </div>
+            {pwError && <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>⚠ {pwError}</div>}
+            <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 16 }}>提示：修改密码后需重新登录</div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowPwModal(false)} style={{ padding: '8px 20px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--t2)', fontSize: 13, cursor: 'pointer' }}>取消</button>
+              <button onClick={handleChangePassword} disabled={pwLoading} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#000', fontWeight: 700, fontSize: 13, cursor: pwLoading ? 'not-allowed' : 'pointer', opacity: pwLoading ? 0.7 : 1 }}>
+                {pwLoading ? '修改中...' : '确认修改'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 修改邮箱弹窗 */}
+      {showEmailModal && (
+        <div onClick={() => setShowEmailModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg2)', border: '1.5px solid var(--border)', borderRadius: 16, padding: '28px 28px', maxWidth: 380, width: '90%' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>📧 修改邮箱地址</div>
+            {!emailSent ? (
+              <>
+                <div style={{ marginBottom: 6, fontSize: 12, color: 'var(--t3)' }}>当前邮箱：<span style={{ color: 'var(--t1)' }}>{user.email}</span></div>
+                <div style={{ marginBottom: 14, marginTop: 14 }}>
+                  <label style={{ fontSize: 12, color: 'var(--t2)', display: 'block', marginBottom: 5 }}>新邮箱地址</label>
+                  <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                    placeholder="输入新邮箱地址"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--t1)', fontSize: 13, outline: 'none' }} />
+                </div>
+                {emailError && <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>⚠ {emailError}</div>}
+                <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 16 }}>提交后，新邮箱会收到验证邮件，点击确认后生效</div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={() => setShowEmailModal(false)} style={{ padding: '8px 20px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--t2)', fontSize: 13, cursor: 'pointer' }}>取消</button>
+                  <button onClick={handleChangeEmail} disabled={emailLoading} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#000', fontWeight: 700, fontSize: 13, cursor: emailLoading ? 'not-allowed' : 'pointer', opacity: emailLoading ? 0.7 : 1 }}>
+                    {emailLoading ? '发送中...' : '发送验证邮件'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📬</div>
+                <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>验证邮件已发送</p>
+                <p style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 20 }}>请登录新邮箱 <strong style={{ color: 'var(--t1)' }}>{newEmail}</strong>，点击验证链接完成更改</p>
+                <button onClick={() => setShowEmailModal(false)} style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#000', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>我知道了</button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
