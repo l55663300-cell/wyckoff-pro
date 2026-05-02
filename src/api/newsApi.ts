@@ -309,5 +309,4 @@ export async function fetchNewsWithSentiment(): Promise<FetchNewsResult> {
   return result;
 }
 
-// prioritySources 仅用于类型推断，避免 TS unused warning
-void (prioritySources as unknown);
+
