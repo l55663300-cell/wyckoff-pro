@@ -385,14 +385,7 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
               }}>免费注册 →</button>
             </div>
 
-            {/* 测试账号提示（开发阶段） */}
-            <div style={{
-              marginTop: 16, padding: '10px 12px',
-              background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.2)',
-              borderRadius: 8, fontSize: 12, color: 'var(--t3)', lineHeight: 1.6,
-            }}>
-              🛠 开发测试账号：<code>admin@wyckoff.pro</code> / <code>Admin@123456</code>
-            </div>
+
           </div>
         )}
 

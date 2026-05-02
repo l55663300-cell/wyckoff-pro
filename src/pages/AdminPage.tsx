@@ -4,8 +4,8 @@ import { saveLLMConfig, clearLLMConfig, getLLMConfig, callLLM, type LLMConfig } 
 import { loadOrders, approveOrder, rejectOrder, PAY_METHOD_LABEL, type RechargeOrder } from '../utils/rechargeStore';
 import { loadUsers, toggleUserBan, setUserCredits, updateUserCredits, type StoredUser } from '../utils/userStore';
 import {
-  loadPlans, updatePlan, savePlans,
-  loadWallets, saveWallets, upsertWallet, deleteWallet,
+  loadPlans, updatePlan,
+  loadWallets, upsertWallet, deleteWallet,
   loadSubOrders, confirmSubOrder, rejectSubOrder,
   ORDER_STATUS_LABEL, CYCLE_LABEL,
   type SubscriptionPlan, type PaymentWallet, type SubscriptionOrder,
@@ -225,7 +225,7 @@ export default function AdminPage() {
 
   // 模型配置状态 — 从 localStorage 读取已保存配置
   const _savedLLM = getLLMConfig();
-  const [selectedProvider, setSelectedProvider] = useState(_savedLLM?.provider ?? 'deepseek');
+  const [selectedProvider, setSelectedProvider] = useState<string>(_savedLLM?.provider ?? 'deepseek');
   const [apiKey, setApiKey] = useState(_savedLLM?.apiKey ?? '');
   const [showKey, setShowKey] = useState(false);
   const [testConnStatus, setTestConnStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>(_savedLLM?.apiKey ? 'ok' : 'idle');
@@ -475,7 +475,7 @@ export default function AdminPage() {
                         const n = parseInt(adjustValue);
                         if (isNaN(n) || n < 0) { showToast('请输入有效数字'); return; }
                         setUserCredits(adjustModal.uid, n);
-                        setUserList(loadUsers());
+                        loadUsers().then(setUserList);
                         setAdjustModal(null); setAdjustValue('');
                         showToast(`✅ 已将 ${adjustModal.email} 次数设置为 ${n} 次`);
                       }} style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--primary)', color: '#fff', fontWeight: 600, border: 'none', cursor: 'pointer' }}>确认</button>

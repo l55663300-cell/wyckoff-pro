@@ -174,6 +174,7 @@ export default function AppPage() {
   const [allNews, setAllNews] = useState<CategorizedNewsItem[]>([]);
   const newsTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [rightTab, setRightTab] = useState<RightPanelTab>('ai');
+  const [quotaInfo, setQuotaInfo] = useState<{ daily: number; total: number; expireAt: string | null; isActive: boolean }>({ daily: 0, total: 0, expireAt: null, isActive: false });
   const [bannerVisible, setBannerVisible] = useState(true);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [quotaBlockReason, setQuotaBlockReason] = useState('');
@@ -196,6 +197,11 @@ export default function AppPage() {
     newsTimerRef.current = setInterval(loadNews, NEWS_REFRESH_INTERVAL);
     return () => { cancelled = true; if (newsTimerRef.current) clearInterval(newsTimerRef.current); };
   }, []);
+
+  // 同步 quotaInfo state（getQuota 是 async，不能在 JSX 里直接调用）
+  useEffect(() => {
+    getQuota().then(setQuotaInfo);
+  }, [user, getQuota]);
 
   // 刷新后自动恢复：直接展示上次结果（已从 localStorage 初始化 displayResult）
   // user 从 AppContext 恢复是异步的，必须监听 user 变化，等 user 有值后再执行恢复逻辑
@@ -230,7 +236,7 @@ export default function AppPage() {
     }, 1000);
   }, []);
 
-  const handleAnalyze = useCallback((sym?: Symbol, tf?: Timeframe, forceReanalyze = false) => {
+  const handleAnalyze = useCallback(async (sym?: Symbol, tf?: Timeframe, forceReanalyze = false) => {
     if (!user) return;
     const targetSym = sym ?? symbol;
     const targetTf = tf ?? activeTimeframe;
@@ -270,13 +276,14 @@ export default function AppPage() {
     // 订阅配额检查（换新币种才消耗次数，切周期复用缓存不消耗）
     const needConsume = analyzedSymbolRef.current !== targetSym;
     if (needConsume) {
-      const quota = consumeQuota();
+      const quota = await consumeQuota();
       if (!quota.allowed) {
         setQuotaBlockReason(quota.reason);
         setShowCreditsModal(true);
         return;
       }
       analyzedSymbolRef.current = targetSym;
+      getQuota().then(setQuotaInfo);
     }
     analyze(targetSym, targetTf);
     saveLastQuery(targetSym, targetTf);
@@ -681,7 +688,7 @@ export default function AppPage() {
 
             {/* 今日剩余次数 / 订阅状态 */}
             {(() => {
-              const quota = getQuota();
+              const quota = quotaInfo;
               const label = quota.isActive
                 ? `今日剩余 ${quota.daily}/${quota.total}`
                 : quota.expireAt ? '订阅已到期' : '未订阅';
@@ -840,7 +847,7 @@ export default function AppPage() {
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>欢迎使用 AI威科夫Pro！</div>
                     <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.7, textAlign: 'center' }}>
                       {(() => {
-                        const q = getQuota();
+                        const q = quotaInfo;
                         return q.isActive
                           ? <>今日剩余 <strong style={{ color: 'var(--primary)' }}>{q.daily}/{q.total} 次</strong> AI 分析配额</>
                           : <span style={{ color: 'var(--red)' }}>请先<strong onClick={() => navigate('recharge')} style={{ cursor: 'pointer', textDecoration: 'underline' }}>订阅套餐</strong>后使用</span>;
