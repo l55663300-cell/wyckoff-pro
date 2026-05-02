@@ -511,7 +511,10 @@ export default function AppPage() {
             padding: '12px 14px', borderBottom: '1px solid var(--border)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--primary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--primary)', cursor: 'pointer' }}
+              onClick={() => navigate(user ? 'app' : 'landing')}
+              title="返回首页"
+            >
               🦞 AI威科夫Pro
             </div>
           </div>
@@ -1290,20 +1293,22 @@ function WyckoffPane({ result }: { result: any }) {
         <p style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.65, margin: 0 }}>{phaseInfo.desc}</p>
       </div>
 
-      {/* 当前形态 */}
-      <div style={{
-        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: patternInfo.color }}>{patternInfo.label}</span>
-          {patternConf > 0 && (
-            <span style={{ fontSize: 11, color: 'var(--t3)' }}>置信度 {typeof patternConf === 'number' ? patternConf.toFixed(2) : patternConf}%</span>
-          )}
+      {/* 当前形态（有明确形态时才展示，与阶段互补） */}
+      {pattern !== 'none' && (
+        <div style={{
+          background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: patternInfo.color }}>{patternInfo.label}</span>
+            {patternConf > 0 && (
+              <span style={{ fontSize: 11, color: 'var(--t3)' }}>置信度 {typeof patternConf === 'number' ? patternConf.toFixed(2) : patternConf}%</span>
+            )}
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.65, margin: 0 }}>{patternInfo.desc}</p>
         </div>
-        <p style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.65, margin: 0 }}>{patternInfo.desc}</p>
-      </div>
+      )}
 
-      {/* 复合人动向 */}
+      {/* 复合人动向（量价背离时附加警示） */}
       {result.wyckoff?.compositeManBehavior && (
         <div style={{
           background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.2)',
@@ -1313,11 +1318,21 @@ function WyckoffPane({ result }: { result: any }) {
           <p style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.7, margin: 0 }}>
             {result.wyckoff.compositeManBehavior}
           </p>
+          {result.wyckoff.volumeVerification === 'divergence' && (
+            <div style={{
+              marginTop: 8, display: 'flex', alignItems: 'center', gap: 6,
+              padding: '5px 9px', borderRadius: 7,
+              background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.25)',
+            }}>
+              <span style={{ fontSize: 14 }}>⚠️</span>
+              <span style={{ fontSize: 11, color: '#d97706', fontWeight: 600 }}>量价背离 · 注意反转风险</span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* 量价验证 */}
-      {result.wyckoff?.volumeVerification && (() => {
+      {/* 量价验证（非背离时展示） */}
+      {result.wyckoff?.volumeVerification && result.wyckoff.volumeVerification !== 'divergence' && (() => {
         const vv = result.wyckoff.volumeVerification;
         const vMap: Record<string, { icon: string; label: string; color: string }> = {
           bullish:    { icon: '✅', label: '量价健康，多头主导', color: '#059669' },
@@ -1341,33 +1356,25 @@ function WyckoffPane({ result }: { result: any }) {
         );
       })()}
 
-      {/* 因果法则 */}
+      {/* 因果法则：只保留区间幅度，目标价已在 AI策略报告 止盈区展示 */}
       {ce && (
-        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)', marginBottom: 7 }}>📐 因果法则（目标测算）</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {[
-              { label: '积累区间幅度', val: `±$${ce.accumulationRange?.toFixed(0) ?? '-'}`, color: 'var(--t1)' },
-              { label: '保守目标',     val: `$${ce.targetConservative?.toLocaleString() ?? '-'}`, color: '#059669' },
-              { label: '理想目标',     val: `$${ce.targetIdeal?.toLocaleString() ?? '-'}`,     color: '#2563eb' },
-              { label: '激进目标',     val: `$${ce.targetAggressive?.toLocaleString() ?? '-'}`, color: '#7c3aed' },
-            ].map(row => (
-              <div key={row.label} style={{
-                display: 'flex', justifyContent: 'space-between',
-                fontSize: 12, padding: '4px 0', borderBottom: '1px solid var(--border)',
-              }}>
-                <span style={{ color: 'var(--t3)' }}>{row.label}</span>
-                <span style={{ fontWeight: 600, fontFamily: 'monospace', color: row.color }}>{row.val}</span>
-              </div>
-            ))}
+        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>📐 因果法则·积累区间幅度</span>
+            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: 'var(--t1)' }}>
+              ±${ce.accumulationRange?.toFixed(0) ?? '-'}
+            </span>
           </div>
+          <p style={{ fontSize: 11, color: 'var(--t3)', margin: '4px 0 0', lineHeight: 1.5 }}>
+            目标价参见「AI策略报告」止盈区
+          </p>
         </div>
       )}
 
       {/* 多周期共振 */}
       {result.indicators && (
         <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 7 }}>🔄 多周期技术共振</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 7 }}>🔄 多周期 RSI 共振</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {tfs.map(({ key, label }) => {
               const ind = result.indicators[key];

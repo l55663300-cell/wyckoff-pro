@@ -33,10 +33,11 @@ interface SymbolSidebarProps {
   loading?: boolean;
   price?: number;
   priceChange24h?: number;
+  onLogoClick?: () => void;
 }
 
 export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
-  symbol, onSymbolChange, loading, price = 0, priceChange24h = 0,
+  symbol, onSymbolChange, loading, price = 0, priceChange24h = 0, onLogoClick,
 }) => {
   const [watchlist, setWatchlist] = useState<string[]>(loadWatchlist);
   const [input, setInput] = useState('');
@@ -84,7 +85,12 @@ export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
       {/* Logo区 */}
       <div
         className="flex items-center gap-2 px-3 py-3.5 shrink-0"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          cursor: onLogoClick ? 'pointer' : 'default',
+        }}
+        onClick={onLogoClick}
+        title={onLogoClick ? '返回首页' : undefined}
       >
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center text-base shrink-0"

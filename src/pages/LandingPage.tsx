@@ -220,8 +220,8 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
               )}
               <div style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 8 }}>{plan.name}</div>
               <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--t1)' }}>
-                ¥{plan.priceUsd}<span style={{ fontSize: 16, fontWeight: 400, color: 'var(--t2)' }}>
-                  {' '}/ {plan.durationDays >= 90 ? '季' : plan.durationDays >= 365 ? '年' : '月'}
+                ${plan.priceUsd}<span style={{ fontSize: 16, fontWeight: 400, color: 'var(--t2)' }}>
+                  {' '}USDT / {plan.durationDays >= 90 ? '季' : plan.durationDays >= 365 ? '年' : '月'}
                 </span>
               </div>
               <div style={{ fontSize: 13, color: '#f0b429', margin: '8px 0 20px' }}>

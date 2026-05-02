@@ -350,10 +350,10 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
                   当前市场处于 <strong>{PHASE_CONFIG[wyckoff.phase]?.label ?? wyckoff.phase}</strong>，
                   综合多周期技术指标与量价结构，
                   {scoring.direction === 'long'
-                    ? `看多信号占优，概率 ${scoring.probability.toFixed(2)}%，建议关注入场区间。`
+                    ? '看多信号占优，建议关注入场区间。'
                     : scoring.direction === 'short'
-                    ? `看空信号占优，概率 ${scoring.probability.toFixed(2)}%，建议谨慎追多。`
-                    : `信号尚不明朗，建议等待方向确认后再介入。`}
+                    ? '看空信号占优，建议谨慎追多。'
+                    : '信号尚不明朗，建议等待方向确认后再介入。'}
                 </p>
               </div>
               {[

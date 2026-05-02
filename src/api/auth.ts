@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '../lib/supabase';
-import { activateSubscription, FREE_TRIAL_PLAN } from '../utils/subscriptionStore';
+import { activateSubscription, getFreeTrialPlan } from '../utils/subscriptionStore';
 
 export interface AuthUser {
   uid: string;
@@ -143,7 +143,7 @@ export async function apiRegister(
   // 赠送7天免费试用订阅
   const welcomeCredits = 5;
   try {
-    await activateSubscription(user.id, FREE_TRIAL_PLAN);
+    await activateSubscription(user.id, getFreeTrialPlan());
   } catch (e) {
     console.warn('[注册] 免费试用订阅写入失败', e);
   }

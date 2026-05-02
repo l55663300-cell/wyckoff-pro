@@ -422,21 +422,31 @@ export async function getUserSubOrders(uid: string): Promise<SubscriptionOrder[]
   return (data ?? []).map(rowToOrder);
 }
 
-// ─── 免费试用套餐 ──────────────────────────────────────────────────────────────
+// ─── 免费试用套餐（动态读取后台配置） ──────────────────────────────────────────
 
-export const FREE_TRIAL_PLAN: SubscriptionPlan = {
-  id: 'free_trial',
-  name: '免费试用',
-  cycle: 'monthly',
-  priceUsd: 0,
-  durationDays: 7,
-  dailyLimit: 5,
-  hourlyLimit: 5,
-  isActive: false,
-  sortOrder: 0,
-  perks: ['注册赠送', '每日5次', '有效期7天'],
-  updatedAt: new Date().toISOString(),
-};
+import { loadSysConfig } from './sysConfigStore';
+
+export function getFreeTrialPlan(): SubscriptionPlan {
+  const cfg = loadSysConfig();
+  const days = cfg.freeTrialDays ?? 7;
+  const limit = cfg.freeTrialDailyLimit ?? 5;
+  return {
+    id: 'free_trial',
+    name: '免费试用',
+    cycle: 'monthly',
+    priceUsd: 0,
+    durationDays: days,
+    dailyLimit: limit,
+    hourlyLimit: limit,
+    isActive: false,
+    sortOrder: 0,
+    perks: ['注册赠送', `每日${limit}次`, `有效期${days}天`],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/** @deprecated 使用 getFreeTrialPlan() 代替，保留此常量仅供类型引用 */
+export const FREE_TRIAL_PLAN: SubscriptionPlan = getFreeTrialPlan();
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────────
 

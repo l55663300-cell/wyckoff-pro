@@ -298,7 +298,11 @@ export default function AdminPage() {
           padding: '20px 20px 16px', borderBottom: '1px solid var(--border-light)',
           fontSize: 15, fontWeight: 700, color: 'var(--t1)',
           display: 'flex', alignItems: 'center', gap: 10,
-        }}>
+          cursor: 'pointer',
+        }}
+          onClick={() => navigate('app')}
+          title="返回分析主页"
+        >
           <span style={{ fontSize: 20 }}>⚙️</span>
           <span>后台管理</span>
         </div>
@@ -1402,8 +1406,23 @@ export default function AdminPage() {
 
             <AdminCard title="🎁 注册与邀请奖励">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <FormRow label="注册赠送次数">
-                  <input style={inputStyle} defaultValue="5" type="number" />
+                <FormRow label="注册赠送每日次数">
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min={1}
+                    value={sysCfg.freeTrialDailyLimit ?? 5}
+                    onChange={e => setSysCfg(p => ({ ...p, freeTrialDailyLimit: Number(e.target.value) }))}
+                  />
+                </FormRow>
+                <FormRow label="注册赠送有效天数">
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min={1}
+                    value={sysCfg.freeTrialDays ?? 7}
+                    onChange={e => setSysCfg(p => ({ ...p, freeTrialDays: Number(e.target.value) }))}
+                  />
                 </FormRow>
                 <FormRow label="邀请人奖励次数（被邀请人首充后）">
                   <input style={inputStyle} defaultValue="10" type="number" />
@@ -1415,7 +1434,7 @@ export default function AdminPage() {
                   <input style={inputStyle} defaultValue="500" type="number" />
                 </FormRow>
               </div>
-              <SaveBtn onClick={() => showToast('✅ 奖励配置已保存')} />
+              <SaveBtn onClick={() => { saveSysConfig(sysCfg); showToast('✅ 奖励配置已保存'); }} />
             </AdminCard>
 
             <AdminCard title="🔒 安全与限流">

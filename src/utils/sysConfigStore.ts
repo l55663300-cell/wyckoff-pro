@@ -17,6 +17,10 @@ export interface SysConfig {
   registrationOpen: boolean;
   /** 维护模式 */
   maintenanceMode: boolean;
+  /** 新用户注册赠送每日次数（免费试用套餐 dailyLimit） */
+  freeTrialDailyLimit: number;
+  /** 新用户注册赠送有效天数 */
+  freeTrialDays: number;
 }
 
 const DEFAULT_CONFIG: SysConfig = {
@@ -29,6 +33,8 @@ const DEFAULT_CONFIG: SysConfig = {
   reviewTimeNote: '工作日 2 小时内审核，节假日可能延迟',
   registrationOpen: true,
   maintenanceMode: false,
+  freeTrialDailyLimit: 5,
+  freeTrialDays: 7,
 };
 
 export function loadSysConfig(): SysConfig {
