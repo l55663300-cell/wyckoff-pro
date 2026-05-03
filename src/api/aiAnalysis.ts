@@ -157,7 +157,10 @@ ${newsText || '  暂无新闻数据'}
 `.trim();
 }
 
-const SYSTEM_PROMPT = `你是一位专业的加密货币量化交易分析师，擅长威科夫理论、技术分析、资金流分析和宏观基本面判断。
+/** localStorage key，与 AdminPage AI调教室保持一致 */
+const CUSTOM_PROMPT_KEY = 'wyckoff_system_prompt_v1';
+
+const DEFAULT_SYSTEM_PROMPT = `你是一位专业的加密货币量化交易分析师，擅长威科夫理论、技术分析、资金流分析和宏观基本面判断。
 你的任务是根据提供的市场结构化数据，综合基本面（新闻舆情）、技术面（威科夫+指标）、资金流（订单簿+资金费率），给出专业的交易策略报告。
 
 **【最高优先级】价格方向铁律，违反即为错误，输出前必须自检：**
@@ -172,6 +175,34 @@ const SYSTEM_PROMPT = `你是一位专业的加密货币量化交易分析师，
 4. summary、wyckoffAnalysis、wyckoffConclusion 是中文自然语言，要有逻辑，体现你对多因子交叉的理解
 5. 不要照抄算法给出的数字，用你的判断做微调或确认，并在 summary 中解释原因
 6. 新闻 tag 只能是"利好"、"利空"、"中性"之一`;
+
+/** 读取当前生效的 System Prompt（优先使用 AI调教室自定义，否则用默认） */
+function getSystemPrompt(): string {
+  try {
+    const custom = localStorage.getItem(CUSTOM_PROMPT_KEY);
+    if (custom && custom.trim().length > 20) return custom.trim();
+  } catch {}
+  return DEFAULT_SYSTEM_PROMPT;
+}
+
+/** 供 AdminPage AI调教室：保存自定义 System Prompt */
+export function saveSystemPrompt(prompt: string): void {
+  localStorage.setItem(CUSTOM_PROMPT_KEY, prompt.trim());
+}
+
+/** 供 AdminPage AI调教室：重置为默认 System Prompt */
+export function resetSystemPrompt(): void {
+  localStorage.removeItem(CUSTOM_PROMPT_KEY);
+}
+
+/** 供 AdminPage AI调教室：读取当前 Prompt（初始化 textarea 用） */
+export function loadSystemPrompt(): string {
+  try {
+    const custom = localStorage.getItem(CUSTOM_PROMPT_KEY);
+    if (custom && custom.trim().length > 20) return custom.trim();
+  } catch {}
+  return DEFAULT_SYSTEM_PROMPT;
+}
 
 function buildOutputFormat(direction: 'long' | 'short' | 'neutral', price: number): string {
   // 根据方向生成正确的示例价格，让 AI 有数字锚点
@@ -245,7 +276,7 @@ export async function generateAIReport(
   const outputFormat = buildOutputFormat(direction, result.price);
 
   const messages = [
-    { role: 'system' as const, content: SYSTEM_PROMPT },
+    { role: 'system' as const, content: getSystemPrompt() },
     {
       role: 'user' as const,
       content: `${marketContext}\n\n${outputFormat}`,

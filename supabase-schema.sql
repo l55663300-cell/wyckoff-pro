@@ -220,3 +220,40 @@ create trigger on_auth_user_created
 create index if not exists idx_sub_orders_uid on public.subscription_orders(uid);
 create index if not exists idx_sub_orders_status on public.subscription_orders(status);
 create index if not exists idx_profiles_invite_code on public.profiles(invite_code);
+
+-- 9. AI 查询记录表（管理员后台跨设备查看用）
+create table if not exists public.query_logs (
+  id          text primary key,
+  uid         uuid references auth.users(id) on delete cascade,
+  email       text not null,
+  symbol      text not null,
+  timeframe   text not null,
+  direction   text not null,
+  score       int default 0,
+  phase       text default '',
+  outcome     text check (outcome in ('win', 'loss')),
+  created_at  timestamptz default now()
+);
+
+alter table public.query_logs enable row level security;
+
+-- 用户只能读自己的查询记录
+create policy "用户读自己的查询记录"
+  on public.query_logs for select
+  using (auth.uid() = uid);
+
+-- 用户可插入自己的查询记录
+create policy "用户写自己的查询记录"
+  on public.query_logs for insert
+  with check (auth.uid() = uid);
+
+-- 管理员可读写全部查询记录
+create policy "管理员读写全部查询记录"
+  on public.query_logs for all
+  using (
+    exists (select 1 from public.profiles p where p.uid = auth.uid() and p.is_admin = true)
+  );
+
+create index if not exists idx_query_logs_uid on public.query_logs(uid);
+create index if not exists idx_query_logs_created_at on public.query_logs(created_at desc);
+

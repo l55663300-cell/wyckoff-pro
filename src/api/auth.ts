@@ -42,18 +42,34 @@ async function fetchProfile(uid: string): Promise<{
   invite_code: string;
   is_admin: boolean;
   credits: number;
+  status: 'active' | 'banned';
 }> {
   const { data } = await supabase
     .from('profiles')
-    .select('invite_code, is_admin')
+    .select('invite_code, is_admin, status')
     .eq('uid', uid)
     .single();
 
-  // credits 字段暂时从订阅状态推算（后续可加专属字段）
+  // 查询用户今日剩余次数（从 user_subscriptions 表）
+  let credits = 0;
+  try {
+    const { data: sub } = await supabase
+      .from('user_subscriptions')
+      .select('daily_limit, daily_used, last_used_date, expire_at')
+      .eq('uid', uid)
+      .single();
+    if (sub && new Date(sub.expire_at) > new Date()) {
+      const today = new Date().toISOString().slice(0, 10);
+      const used = sub.last_used_date === today ? (sub.daily_used ?? 0) : 0;
+      credits = Math.max(0, (sub.daily_limit ?? 0) - used);
+    }
+  } catch {}
+
   return {
     invite_code: data?.invite_code ?? '',
     is_admin: data?.is_admin ?? false,
-    credits: 0,
+    credits,
+    status: (data?.status as 'active' | 'banned') ?? 'active',
   };
 }
 
@@ -81,6 +97,12 @@ export async function apiLogin(
   const user = data.user!;
   const session = data.session!;
   const profile = await fetchProfile(user.id);
+
+  // 封禁检查
+  if (profile.status === 'banned') {
+    await supabase.auth.signOut();
+    throw { message: '账号已被封禁，请联系客服', code: 403 } as ApiError;
+  }
 
   return {
     uid: user.id,
@@ -206,6 +228,12 @@ export async function apiGetSession(): Promise<AuthUser | null> {
 
   const user = session.user;
   const profile = await fetchProfile(user.id);
+
+  // 封禁检查：已登录用户刷新页面时也需检查
+  if (profile.status === 'banned') {
+    await supabase.auth.signOut();
+    return null;
+  }
 
   return {
     uid: user.id,

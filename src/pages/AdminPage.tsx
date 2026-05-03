@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { saveLLMConfig, clearLLMConfig, getLLMConfig, callLLM, type LLMConfig } from '../api/llmProvider';
+import { saveSystemPrompt, resetSystemPrompt, loadSystemPrompt } from '../api/aiAnalysis';
 import { loadOrders, approveOrder, rejectOrder, PAY_METHOD_LABEL, type RechargeOrder } from '../utils/rechargeStore';
 import { loadUsers, toggleUserBan, setUserCredits, updateUserCredits, type StoredUser } from '../utils/userStore';
 import {
@@ -10,7 +11,7 @@ import {
   ORDER_STATUS_LABEL, CYCLE_LABEL,
   type SubscriptionPlan, type PaymentWallet, type SubscriptionOrder,
 } from '../utils/subscriptionStore';
-import { loadQueries, type QueryRecord } from '../utils/queryStore';
+import { loadQueries, loadAllQueriesFromDB, type QueryRecord } from '../utils/queryStore';
 import { loadNotices, pushNotice, type Notice } from '../utils/noticeStore';
 import { loadFeedback, updateFeedbackStatus, FEEDBACK_TYPE_LABEL, FEEDBACK_STATUS_LABEL, type FeedbackItem } from '../utils/feedbackStore';
 import { loadContent, savePartialContent, type SiteContent } from '../utils/contentStore';
@@ -174,7 +175,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeTab === 'recharges') void Promise.resolve(loadOrders()).then(setRechargeOrders);
     if (activeTab === 'users') void loadUsers().then(setUserList);
-    if (activeTab === 'queries') setQueryList(loadQueries());
+    if (activeTab === 'queries') void loadAllQueriesFromDB().then(setQueryList);
     if (activeTab === 'feedback') setFeedbackList(loadFeedback());
     if (activeTab === 'notifications') setNoticeList(loadNotices());
     if (activeTab === 'plans') void loadPlans().then(setPlans);
@@ -192,7 +193,7 @@ export default function AdminPage() {
         setRechargeOrders(orders);
         setUserList(users);
       });
-      setQueryList(loadQueries());
+      void loadAllQueriesFromDB().then(setQueryList);
       setFeedbackList(loadFeedback());
     }
   }, [activeTab]);
@@ -202,18 +203,8 @@ export default function AdminPage() {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [editAdmin, setEditAdmin] = useState<AdminUser | null>(null);
 
-  // AI调教室状态
-  const [systemPrompt, setSystemPrompt] = useState(
-    `你是一位专业的威科夫（Wyckoff）技术分析师，具备以下专业能力：
-
-1. 威科夫阶段分析：准确识别积累、上涨、派发、下跌四个阶段
-2. 价格-成交量关系：分析每根K线的量价关系，识别机构操作痕迹
-3. 支撑/阻力判断：基于威科夫理论识别关键价位
-4. 风险控制：提供止损位、目标位和仓位建议
-5. 综合评分：0-100分客观评估当前交易机会
-
-分析时请保持客观、专业，给出有数据支撑的结论。`
-  );
+  // AI调教室状态 — 从 localStorage 读取已保存的 System Prompt
+  const [systemPrompt, setSystemPrompt] = useState(() => loadSystemPrompt());
   const [kbEntries, setKbEntries] = useState([
     { id: 1, title: '威科夫积累阶段详解', type: 'text', size: '2.3KB', updated: '2026-04-20' },
     { id: 2, title: '量价关系分析手册',   type: 'pdf',  size: '128KB', updated: '2026-04-18' },
@@ -251,14 +242,23 @@ export default function AdminPage() {
     setTimeout(() => setToast(''), 2500);
   };
 
-  const handleTestPrompt = () => {
+  const handleTestPrompt = async () => {
     if (!testInput.trim()) { showToast('请输入测试内容'); return; }
+    const cfg = getLLMConfig();
+    if (!cfg) { showToast('请先在【模型配置】中保存 API Key'); return; }
     setTestLoading(true);
     setTestOutput('');
-    setTimeout(() => {
-      setTestOutput(`【AI分析回复 - Mock】\n\n根据您提供的数据，当前 BTC/USDT 处于威科夫积累阶段（Phase C），价格在 $62,800 附近出现弹簧（Spring）信号。\n\n📊 威科夫阶段：积累 Phase C\n方向建议：▲ 做多\n评分：78/100\n\n建议入场区间：$62,500 - $63,200\n止损位：$61,800（低于支撑区）\n目标位1：$67,000（+6.3%）\n目标位2：$71,500（+13.4%）\n\n风险提示：若价格跌破 $61,800 则积累形态失效，需重新评估。`);
+    try {
+      const result = await callLLM([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: testInput.trim() },
+      ], cfg);
+      setTestOutput(result.content);
+    } catch (e: any) {
+      setTestOutput(`❌ 调用失败：${e?.message ?? '未知错误'}`);
+    } finally {
       setTestLoading(false);
-    }, 1800);
+    }
   };
 
   const openEditModal = (admin: AdminUser | null) => {
@@ -1139,11 +1139,11 @@ export default function AdminPage() {
                   fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6,
                 }}
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                 <span style={{ fontSize: 11, color: 'var(--t3)' }}>{systemPrompt.length} 字符 · 预计 ~{Math.ceil(systemPrompt.length / 4)} tokens</span>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => showToast('已重置为默认 Prompt')} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>重置默认</button>
-                  <SaveBtn onClick={() => showToast('✅ System Prompt 已保存')} label="保存 Prompt" />
+                  <button onClick={() => { resetSystemPrompt(); setSystemPrompt(loadSystemPrompt()); showToast('✅ 已重置为默认 Prompt'); }} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--t2)', fontSize: 12, cursor: 'pointer' }}>重置默认</button>
+                  <SaveBtn onClick={() => { saveSystemPrompt(systemPrompt); showToast('✅ System Prompt 已保存，下次 AI 分析立即生效'); }} label="保存 Prompt" />
                 </div>
               </div>
             </AdminCard>
@@ -1356,11 +1356,11 @@ export default function AdminPage() {
                   <input style={inputStyle} value={maxTokens} onChange={e => setMaxTokens(e.target.value)} type="number" />
                 </FormRow>
                 <FormRow label="每次查询消耗次数">
-                  <input style={inputStyle} defaultValue="1" type="number" min="1" />
+                  <input style={inputStyle} value="1" readOnly type="number" min="1" title="固定为1，每次AI查询消耗1次配额" />
                 </FormRow>
               </div>
               <FormRow label="超时时间（秒）">
-                <input style={{ ...inputStyle, width: 120 }} defaultValue="30" type="number" />
+                <input style={{ ...inputStyle, width: 120 }} value="60" readOnly type="number" title="由后端代理控制，前端不可配置" />
               </FormRow>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 <SaveBtn
@@ -1425,13 +1425,31 @@ export default function AdminPage() {
                   />
                 </FormRow>
                 <FormRow label="邀请人奖励次数（被邀请人首充后）">
-                  <input style={inputStyle} defaultValue="10" type="number" />
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min={0}
+                    value={sysCfg.inviterRewardCredits ?? 10}
+                    onChange={e => setSysCfg(p => ({ ...p, inviterRewardCredits: Number(e.target.value) }))}
+                  />
                 </FormRow>
                 <FormRow label="被邀请人奖励次数">
-                  <input style={inputStyle} defaultValue="5" type="number" />
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min={0}
+                    value={sysCfg.inviteeRewardCredits ?? 5}
+                    onChange={e => setSysCfg(p => ({ ...p, inviteeRewardCredits: Number(e.target.value) }))}
+                  />
                 </FormRow>
                 <FormRow label="邀请奖励上限（次/人）">
-                  <input style={inputStyle} defaultValue="500" type="number" />
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min={0}
+                    value={sysCfg.inviteRewardCap ?? 500}
+                    onChange={e => setSysCfg(p => ({ ...p, inviteRewardCap: Number(e.target.value) }))}
+                  />
                 </FormRow>
               </div>
               <SaveBtn onClick={() => { saveSysConfig(sysCfg); showToast('✅ 奖励配置已保存'); }} />
@@ -1440,19 +1458,43 @@ export default function AdminPage() {
             <AdminCard title="🔒 安全与限流">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <FormRow label="登录失败锁定阈值（次）">
-                  <input style={inputStyle} defaultValue="5" type="number" />
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min={1}
+                    value={sysCfg.loginLockThreshold ?? 5}
+                    onChange={e => setSysCfg(p => ({ ...p, loginLockThreshold: Number(e.target.value) }))}
+                  />
                 </FormRow>
                 <FormRow label="锁定时长（分钟）">
-                  <input style={inputStyle} defaultValue="30" type="number" />
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min={1}
+                    value={sysCfg.loginLockMinutes ?? 30}
+                    onChange={e => setSysCfg(p => ({ ...p, loginLockMinutes: Number(e.target.value) }))}
+                  />
                 </FormRow>
                 <FormRow label="API 次数限速（次/分钟/IP）">
-                  <input style={inputStyle} defaultValue="60" type="number" />
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min={1}
+                    value={sysCfg.apiRateLimitPerMin ?? 60}
+                    onChange={e => setSysCfg(p => ({ ...p, apiRateLimitPerMin: Number(e.target.value) }))}
+                  />
                 </FormRow>
                 <FormRow label="AI查询限速（次/小时/用户）">
-                  <input style={inputStyle} defaultValue="100" type="number" />
+                  <input
+                    style={inputStyle}
+                    type="number"
+                    min={1}
+                    value={sysCfg.aiQueryLimitPerHour ?? 100}
+                    onChange={e => setSysCfg(p => ({ ...p, aiQueryLimitPerHour: Number(e.target.value) }))}
+                  />
                 </FormRow>
               </div>
-              <SaveBtn onClick={() => showToast('✅ 安全配置已保存')} />
+              <SaveBtn onClick={() => { saveSysConfig(sysCfg); showToast('✅ 安全配置已保存'); }} />
             </AdminCard>
 
             {/* 基础设置 — 真实读写 sysConfigStore */}

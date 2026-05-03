@@ -21,6 +21,20 @@ export interface SysConfig {
   freeTrialDailyLimit: number;
   /** 新用户注册赠送有效天数 */
   freeTrialDays: number;
+  /** 邀请人奖励次数（被邀请人首充后发放） */
+  inviterRewardCredits: number;
+  /** 被邀请人注册奖励次数 */
+  inviteeRewardCredits: number;
+  /** 邀请奖励上限（每人最多可获得的奖励次数） */
+  inviteRewardCap: number;
+  /** 登录失败锁定阈值（次） */
+  loginLockThreshold: number;
+  /** 锁定时长（分钟） */
+  loginLockMinutes: number;
+  /** API 限速（次/分钟/IP） */
+  apiRateLimitPerMin: number;
+  /** AI查询限速（次/小时/用户），作为兜底上限 */
+  aiQueryLimitPerHour: number;
 }
 
 const DEFAULT_CONFIG: SysConfig = {
@@ -35,6 +49,13 @@ const DEFAULT_CONFIG: SysConfig = {
   maintenanceMode: false,
   freeTrialDailyLimit: 5,
   freeTrialDays: 7,
+  inviterRewardCredits: 10,
+  inviteeRewardCredits: 5,
+  inviteRewardCap: 500,
+  loginLockThreshold: 5,
+  loginLockMinutes: 30,
+  apiRateLimitPerMin: 60,
+  aiQueryLimitPerHour: 100,
 };
 
 export function loadSysConfig(): SysConfig {
