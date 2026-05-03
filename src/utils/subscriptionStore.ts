@@ -279,10 +279,9 @@ let _subCache: UserSubscription | null = null;
 let _subCacheUid = '';
 
 export async function loadSubCache(uid: string): Promise<void> {
-  if (_subCacheUid !== uid) {
-    _subCache = await getUserSubscription(uid);
-    _subCacheUid = uid;
-  }
+  // 每次都从数据库读取最新值，确保 dailyUsed 计数强一致
+  _subCache = await getUserSubscription(uid);
+  _subCacheUid = uid;
 }
 
 export type QuotaCheckResult =

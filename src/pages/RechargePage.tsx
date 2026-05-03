@@ -349,10 +349,12 @@ export default function RechargePage() {
               )}
 
               {selectedWallet && (
-                <div style={{ marginTop: 16, background: 'rgba(240,180,41,0.06)', border: '1px solid rgba(240,180,41,0.25)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: 'var(--t2)', lineHeight: 1.7 }}>
+                <div style={{ marginTop: 16, background: 'rgba(240,180,41,0.06)', border: '1px solid rgba(240,180,41,0.25)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: 'var(--t2)', lineHeight: 1.9 }}>
                   <div>📌 请向上方 <strong style={{ color: 'var(--primary)' }}>{selectedWallet.network}</strong> 地址转账 <strong style={{ color: 'var(--primary)' }}>${selectedPlan.priceUsd} USDT</strong></div>
                   <div>📧 转账备注请填写您的注册邮箱：<strong style={{ color: 'var(--primary)' }}>{user.email}</strong></div>
-                  <div style={{ color: 'var(--red)', marginTop: 4, fontSize: 12 }}>⚠️ 请确认网络类型与钱包一致（{selectedWallet.network}），否则资产将永久丢失</div>
+                  {sysConfig.paymentNote.split('\n').filter(l => l.trim() && !l.startsWith('📌') && !l.startsWith('📧')).map((line, i) => (
+                    <div key={i} style={line.startsWith('⚠️') ? { color: 'var(--red)', marginTop: 4, fontSize: 12 } : {}}>{line}</div>
+                  ))}
                 </div>
               )}
             </div>

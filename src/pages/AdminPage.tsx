@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 import { saveLLMConfig, clearLLMConfig, getLLMConfig, callLLM, type LLMConfig } from '../api/llmProvider';
 import { saveSystemPrompt, resetSystemPrompt, loadSystemPrompt } from '../api/aiAnalysis';
 import { loadOrders, approveOrder, rejectOrder, PAY_METHOD_LABEL, type RechargeOrder } from '../utils/rechargeStore';
@@ -196,12 +197,39 @@ export default function AdminPage() {
       void loadAllQueriesFromDB().then(setQueryList);
       setFeedbackList(loadFeedback());
     }
+    if (activeTab === 'admins') void loadAdmins();
   }, [activeTab]);
 
-  // 管理员账号状态
-  const [admins, setAdmins] = useState<AdminUser[]>(INITIAL_ADMINS);
+  // 管理员账号状态（从 Supabase profiles 真实读取）
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [editAdmin, setEditAdmin] = useState<AdminUser | null>(null);
+
+  // 加载真实管理员列表
+  const loadAdmins = async () => {
+    setAdminsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('uid, email, name, is_admin')
+        .eq('is_admin', true);
+      if (data) {
+        setAdmins(data.map((row, i) => ({
+          id: i + 1,
+          name: row.name ?? row.email?.split('@')[0] ?? '',
+          email: row.email ?? '',
+          role: 'super_admin' as const,
+          customPerms: [],
+          color: 'rgba(240,180,41,0.15)',
+          tc: 'var(--primary)',
+          uid: row.uid,
+        })));
+      }
+    } finally {
+      setAdminsLoading(false);
+    }
+  };
 
   // AI调教室状态 — 从 localStorage 读取已保存的 System Prompt
   const [systemPrompt, setSystemPrompt] = useState(() => loadSystemPrompt());
@@ -268,16 +296,30 @@ export default function AdminPage() {
     setShowAdminModal(true);
   };
 
-  const handleSaveAdmin = () => {
+  const handleSaveAdmin = async () => {
     if (!editAdmin) return;
-    if (!editAdmin.name.trim() || !editAdmin.email.trim()) { showToast('请填写姓名和邮箱'); return; }
-    setAdmins(prev => {
-      const idx = prev.findIndex(a => a.id === editAdmin.id);
-      if (idx >= 0) { const next = [...prev]; next[idx] = editAdmin; return next; }
-      return [...prev, editAdmin];
-    });
+    if (!editAdmin.email.trim()) { showToast('请填写邮箱'); return; }
+    // 通过邮箱在 profiles 表查找 uid，然后设置 is_admin=true
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('uid')
+      .eq('email', editAdmin.email.trim())
+      .single();
+    if (error || !profile) {
+      showToast('❌ 未找到该邮箱对应的注册用户，请确认邮箱已注册');
+      return;
+    }
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ is_admin: true, name: editAdmin.name.trim() || undefined })
+      .eq('uid', profile.uid);
+    if (updateError) {
+      showToast('❌ 设置失败：' + updateError.message);
+      return;
+    }
     setShowAdminModal(false);
-    showToast('管理员信息已保存');
+    showToast('✅ 管理员权限已生效，该用户下次登录即可访问后台');
+    void loadAdmins();
   };
 
   const getEffectivePerms = (admin: AdminUser) =>
@@ -1514,6 +1556,14 @@ export default function AdminPage() {
               <FormRow label="审核时效说明">
                 <input style={inputStyle} value={sysCfg.reviewTimeNote} onChange={e => setSysCfg(p => ({ ...p, reviewTimeNote: e.target.value }))} placeholder="如：工作日 2 小时内审核" />
               </FormRow>
+              <FormRow label="转账提示（付款步骤钱包地址下方，每行一条）">
+                <textarea
+                  style={{ ...inputStyle, minHeight: 80, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
+                  value={sysCfg.paymentNote ?? ''}
+                  onChange={e => setSysCfg(p => ({ ...p, paymentNote: e.target.value }))}
+                  placeholder="📌/📧/⚠️ 开头的行会自动高亮，动态的网络/金额/邮箱由系统自动填入"
+                />
+              </FormRow>
               <FormRow label="订阅说明（显示在付款步骤，每行一条）">
                 <textarea
                   style={{ ...inputStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
@@ -1546,7 +1596,11 @@ export default function AdminPage() {
             <PageTitle title="🔐 管理员账号" sub="管理后台访问人员及权限" />
 
             <AdminCard title="管理员列表">
-              {admins.map((admin, i) => {
+              {adminsLoading ? (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t3)', fontSize: 13 }}>加载中...</div>
+              ) : admins.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t3)', fontSize: 13 }}>暂无管理员，点击下方按钮添加</div>
+              ) : admins.map((admin, i) => {
                 const roleInfo = ROLE_DISPLAY[admin.role] ?? ROLE_DISPLAY.custom;
                 return (
                   <div key={admin.id} style={{
@@ -1558,16 +1612,21 @@ export default function AdminPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 15, fontWeight: 700,
                       background: roleInfo.bg, color: roleInfo.color,
-                    }}>{admin.name[0]}</div>
+                    }}>{(admin.name || admin.email || '?')[0].toUpperCase()}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{admin.name}</div>
                       <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{admin.email}</div>
                     </div>
                     <StatusBadge label={roleInfo.label} color={roleInfo.color} bg={roleInfo.bg} />
                     <ActionBtn onClick={() => openEditModal(admin)} label="编辑权限" />
-                    {admin.role !== 'super_admin' && (
-                      <ActionBtn onClick={() => { setAdmins(prev => prev.filter(a => a.id !== admin.id)); showToast('已删除管理员'); }} label="删除" color="var(--red)" />
-                    )}
+                    <ActionBtn onClick={async () => {
+                      const uid = (admin as any).uid;
+                      if (!uid) { showToast('无法获取用户ID'); return; }
+                      const { error } = await supabase.from('profiles').update({ is_admin: false }).eq('uid', uid);
+                      if (error) { showToast('❌ 删除失败：' + error.message); return; }
+                      showToast('✅ 已移除管理员权限');
+                      void loadAdmins();
+                    }} label="移除权限" color="var(--red)" />
                   </div>
                 );
               })}

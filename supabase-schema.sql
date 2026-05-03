@@ -129,6 +129,10 @@ create policy "用户读自己的订阅"
   on public.user_subscriptions for select
   using (auth.uid() = uid);
 
+create policy "用户插入自己的订阅用量"
+  on public.user_subscriptions for insert
+  with check (auth.uid() = uid);
+
 create policy "用户更新自己的订阅用量"
   on public.user_subscriptions for update
   using (auth.uid() = uid);

@@ -13,6 +13,8 @@ export interface SysConfig {
   subscriptionNote: string;
   /** 审核时效说明 */
   reviewTimeNote: string;
+  /** 转账提示文字（显示在付款步骤钱包地址下方，支持换行\n） */
+  paymentNote: string;
   /** 是否开放注册 */
   registrationOpen: boolean;
   /** 维护模式 */
@@ -45,6 +47,7 @@ const DEFAULT_CONFIG: SysConfig = {
   subscriptionNote:
     '• 提交订单后，请耐心等待管理员审核。\n• 审核通过后订阅立即生效，到期前续费可顺延。\n• 不支持退款，如有问题请联系客服邮箱或微信。\n• 请确保转账网络与钱包一致，否则资产将永久丢失。',
   reviewTimeNote: '工作日 2 小时内审核，节假日可能延迟',
+  paymentNote: '📌 请向上方对应网络地址转账对应金额 USDT\n📧 转账备注请填写您的注册邮箱\n⚠️ 请确认网络类型与钱包一致，否则资产将永久丢失',
   registrationOpen: true,
   maintenanceMode: false,
   freeTrialDailyLimit: 5,

@@ -51,8 +51,14 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
           <span style={{ fontSize: 22 }}>🦞</span> AI威科夫Pro
         </div>
         <div style={{ display: 'flex', gap: 24 }}>
-          {['功能介绍', '定价', '关于我们'].map(t => (
-            <a key={t} href="#" style={{ fontSize: 14, color: 'var(--t2)', textDecoration: 'none' }}>{t}</a>
+          {[
+            { label: '功能介绍', id: 'section-features' },
+            { label: '定价',     id: 'section-pricing' },
+            { label: '关于我们', id: 'section-about' },
+          ].map(({ label, id }) => (
+            <a key={label} href={`#${id}`}
+              onClick={e => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }}
+              style={{ fontSize: 14, color: 'var(--t2)', textDecoration: 'none', cursor: 'pointer' }}>{label}</a>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -173,7 +179,7 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
       </div>
 
       {/* 功能介绍 */}
-      <div style={{ padding: '80px 20px', maxWidth: 1100, margin: '0 auto' }}>
+      <div id="section-features" style={{ padding: '80px 20px', maxWidth: 1100, margin: '0 auto' }}>
         <h2 style={{ textAlign: 'center', fontSize: 32, fontWeight: 700, marginBottom: 12 }}>为专业交易者打造</h2>
         <p style={{ textAlign: 'center', color: 'var(--t2)', marginBottom: 48 }}>整合威科夫理论、量化指标与 AI 分析，让每一次决策都有据可依</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
@@ -202,7 +208,7 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
       </div>
 
       {/* 定价 */}
-      <div style={{ padding: '80px 20px', background: 'var(--bg2)' }}>
+      <div id="section-pricing" style={{ padding: '80px 20px', background: 'var(--bg2)' }}>
         <h2 style={{ textAlign: 'center', fontSize: 32, fontWeight: 700, marginBottom: 12 }}>简单透明的定价</h2>
         <p style={{ textAlign: 'center', color: 'var(--t2)', marginBottom: 48 }}>灵活订阅，无隐藏费用</p>
         <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap', maxWidth: 960, margin: '0 auto' }}>
@@ -243,7 +249,7 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
       </div>
 
       {/* Footer */}
-      <div style={{ textAlign: 'center', padding: '40px 20px', borderTop: '1px solid var(--border)', color: 'var(--t3)', fontSize: 13 }}>
+      <div id="section-about" style={{ textAlign: 'center', padding: '40px 20px', borderTop: '1px solid var(--border)', color: 'var(--t3)', fontSize: 13 }}>
         © 2026 AI威科夫Pro · 仅供技术学习参考，不构成投资建议
       </div>
     </div>

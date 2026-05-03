@@ -22,6 +22,7 @@ import { AvatarDropdown } from '../components/modals/AvatarDropdown';
 import { addQueryRecord } from '../utils/queryStore';
 import { addFavCoin, removeFavCoin, loadFavCoins } from '../utils/queryStore';
 import { loadNotices, getUnreadCount, markAllRead } from '../utils/noticeStore';
+import { loadContent } from '../utils/contentStore';
 import { useToast } from '../components/Toast';
 
 const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000;
@@ -177,6 +178,7 @@ export default function AppPage() {
   const [rightTab, setRightTab] = useState<RightPanelTab>('ai');
   const [quotaInfo, setQuotaInfo] = useState<{ daily: number; total: number; expireAt: string | null; isActive: boolean }>({ daily: 0, total: 0, expireAt: null, isActive: false });
   const [bannerVisible, setBannerVisible] = useState(true);
+  const content = loadContent();
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [quotaBlockReason, setQuotaBlockReason] = useState('');
   const [showNotif, setShowNotif] = useState(false);
@@ -487,11 +489,13 @@ export default function AppPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg1)', overflow: 'hidden' }}>
 
-      {/* ── 活动Banner ── */}
-      {bannerVisible && (
+      {/* ── 活动Banner（从 contentStore 读取，与首页同步） ── */}
+      {bannerVisible && content.banner.enabled && (
         <div className="activity-banner">
-          🔥 限时活动：充值100次套餐享 <strong>9折优惠</strong>，活动截止 2026-05-10
-          <a onClick={() => navigate('recharge')}>立即充值 →</a>
+          {content.banner.text}
+          {content.banner.linkText && (
+            <a onClick={() => navigate('recharge')} style={{ cursor: 'pointer' }}>{content.banner.linkText} →</a>
+          )}
           <button className="activity-banner-close" onClick={() => setBannerVisible(false)}>×</button>
         </div>
       )}
