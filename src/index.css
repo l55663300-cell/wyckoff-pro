@@ -258,14 +258,25 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   font-size: 13px; font-weight: 600; color: #fff;
   position: relative; z-index: 40; flex-shrink: 0;
   letter-spacing: 0.01em;
+  white-space: nowrap; overflow: hidden;
 }
-.activity-banner a { color: #fff; text-decoration: underline; cursor: pointer; font-weight: 700; opacity: 0.9; }
+.activity-banner a { color: #fff; text-decoration: underline; cursor: pointer; font-weight: 700; opacity: 0.9; white-space: nowrap; }
 .activity-banner-close {
   position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
   cursor: pointer; font-size: 16px; opacity: .7;
   background: none; border: none; color: #fff; line-height: 1;
 }
 .activity-banner-close:hover { opacity: 1; }
+
+@media (max-width: 767px) {
+  .activity-banner {
+    font-size: 11px;
+    padding: 7px 36px 7px 10px;
+    gap: 6px;
+    justify-content: flex-start;
+  }
+  .activity-banner-close { right: 8px; font-size: 14px; }
+}
 
 /* ── Toast ── */
 .toast-bar {

@@ -682,7 +682,7 @@ export default function AppPage() {
         )} {/* end !isMobile sidebar */}
 
         {/* ── 主内容区 ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, paddingBottom: isMobile ? 56 : 0 }}>
 
           {/* ── 手机端横向币种选择栏（替代左侧边栏） ── */}
           {isMobile && (
@@ -913,14 +913,14 @@ export default function AppPage() {
           </div>
 
           {/* ── 图表+右面板 ── */}
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+          <div style={{ flex: 1, display: isMobile && mobileTab !== 'chart' ? 'none' : 'flex', overflow: 'hidden', minHeight: 0 }}>
 
             {/* 图表区（手机端仅 chart tab 时展开） */}
             <div style={{
               flex: 1, display: isMobile && mobileTab !== 'chart' ? 'none' : 'flex',
               flexDirection: 'column',
               borderRight: isMobile ? 'none' : '1px solid var(--border)',
-              overflow: 'hidden', minWidth: 0,
+              overflow: isMobile ? 'auto' : 'hidden', minWidth: 0,
             }}>
 
               {/* 策略提示条 */}
@@ -943,7 +943,7 @@ export default function AppPage() {
               )}
 
               {/* K线图 */}
-              <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', ...(isMobile ? {} : { flex: 1, minHeight: 0 }) }}>
                 {/* 未分析引导 */}
                 {!displayResult && !loading && (
                   <div style={{
@@ -978,13 +978,13 @@ export default function AppPage() {
                 )}
 
                 {/* K线 + VP */}
-                <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+                <div style={{ display: 'flex', height: isMobile ? 260 : 300, flexShrink: 0 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <CandlestickChart klines={chartKlines} height={300} symbol={symbol} timeframe={activeTimeframe} />
+                    <CandlestickChart klines={chartKlines} height={isMobile ? 260 : 300} symbol={symbol} timeframe={activeTimeframe} />
                   </div>
                   {displayResult && (
                     <div style={{ width: 72, background: 'var(--bg3)', borderLeft: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
-                      <VolumeProfileBar profile={displayResult.volumeProfile} symbol={symbol} currentPrice={displayResult.price} height={300} />
+                      <VolumeProfileBar profile={displayResult.volumeProfile} symbol={symbol} currentPrice={displayResult.price} height={isMobile ? 260 : 300} />
                     </div>
                   )}
                 </div>
@@ -1090,7 +1090,7 @@ export default function AppPage() {
             <div
               key={`mobile-${mobileTab}-${displayResult?.timestamp ?? 'empty'}`}
               className="animate-fade-in"
-              style={{ flex: 1, overflowY: 'auto', background: 'var(--bg2)', borderTop: '1px solid var(--border)' }}
+              style={{ flex: 1, overflowY: 'auto', background: 'var(--bg2)', minHeight: 0 }}
             >
               {mobileTab === 'report' && (
                 displayResult ? (
