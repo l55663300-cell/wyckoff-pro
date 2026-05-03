@@ -13,8 +13,8 @@ import {
   type SubscriptionPlan, type PaymentWallet, type SubscriptionOrder,
 } from '../utils/subscriptionStore';
 import { loadQueries, loadAllQueriesFromDB, type QueryRecord } from '../utils/queryStore';
-import { loadNotices, pushNotice, type Notice } from '../utils/noticeStore';
-import { loadFeedback, updateFeedbackStatus, FEEDBACK_TYPE_LABEL, FEEDBACK_STATUS_LABEL, type FeedbackItem } from '../utils/feedbackStore';
+import { loadNoticesFromDB, pushNotice, type Notice } from '../utils/noticeStore';
+import { loadFeedbackFromDB, updateFeedbackStatus, FEEDBACK_TYPE_LABEL, FEEDBACK_STATUS_LABEL, type FeedbackItem } from '../utils/feedbackStore';
 import { loadContent, savePartialContent, type SiteContent } from '../utils/contentStore';
 import { loadSysConfig, saveSysConfig } from '../utils/sysConfigStore';
 
@@ -177,8 +177,8 @@ export default function AdminPage() {
     if (activeTab === 'recharges') void Promise.resolve(loadOrders()).then(setRechargeOrders);
     if (activeTab === 'users') void loadUsers().then(setUserList);
     if (activeTab === 'queries') void loadAllQueriesFromDB().then(setQueryList);
-    if (activeTab === 'feedback') setFeedbackList(loadFeedback());
-    if (activeTab === 'notifications') setNoticeList(loadNotices());
+    if (activeTab === 'feedback') void loadFeedbackFromDB().then(setFeedbackList);
+    if (activeTab === 'notifications') void loadNoticesFromDB().then(setNoticeList);
     if (activeTab === 'plans') void loadPlans().then(setPlans);
     if (activeTab === 'wallets') void loadWallets().then(setWallets);
     if (activeTab === 'suborders') void loadSubOrders().then(setSubOrders);
@@ -195,7 +195,7 @@ export default function AdminPage() {
         setUserList(users);
       });
       void loadAllQueriesFromDB().then(setQueryList);
-      setFeedbackList(loadFeedback());
+      void loadFeedbackFromDB().then(setFeedbackList);
     }
     if (activeTab === 'admins') void loadAdmins();
   }, [activeTab]);
@@ -1030,12 +1030,13 @@ export default function AdminPage() {
                 </select>
               </FormRow>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button onClick={() => {
+                <button onClick={async () => {
                   if (!noticeTitle.trim()) { showToast('请填写公告标题'); return; }
                   if (!noticeContent.trim()) { showToast('请填写公告内容'); return; }
-                  pushNotice({ title: noticeTitle, content: noticeContent, type: noticeType });
+                  const result = await pushNotice({ title: noticeTitle, content: noticeContent, type: noticeType });
+                  if (!result) { showToast('❌ 推送失败，请稍后重试'); return; }
                   setNoticeTitle(''); setNoticeContent('');
-                  setNoticeList(loadNotices());
+                  void loadNoticesFromDB().then(setNoticeList);
                   showToast('✅ 公告已推送，用户通知面板将显示');
                 }} style={{ padding: '9px 22px', borderRadius: 10, background: 'var(--primary)', color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,122,255,0.2)' }}>🚀 立即推送</button>
                 <span style={{ fontSize: 11, color: 'var(--t3)' }}>推送后不可撤回，请确认内容无误</span>
@@ -1098,10 +1099,10 @@ export default function AdminPage() {
                         return (
                           <div style={{ display: 'flex', gap: 6 }}>
                             {fb.status === 'pending' && (
-                              <ActionBtn onClick={() => { updateFeedbackStatus(fb.id, 'processing'); setFeedbackList(loadFeedback()); showToast('✅ 已受理，状态改为处理中'); }} label="受理" color="var(--primary)" />
+                              <ActionBtn onClick={async () => { await updateFeedbackStatus(fb.id, 'processing'); void loadFeedbackFromDB().then(setFeedbackList); showToast('✅ 已受理，状态改为处理中'); }} label="受理" color="var(--primary)" />
                             )}
                             {fb.status === 'processing' && (
-                              <ActionBtn onClick={() => { updateFeedbackStatus(fb.id, 'resolved'); setFeedbackList(loadFeedback()); showToast('✅ 已标记为已解决'); }} label="解决" color="var(--green)" />
+                              <ActionBtn onClick={async () => { await updateFeedbackStatus(fb.id, 'resolved'); void loadFeedbackFromDB().then(setFeedbackList); showToast('✅ 已标记为已解决'); }} label="解决" color="var(--green)" />
                             )}
                             {fb.status === 'resolved' && (
                               <StatusBadge label="已处理" color="var(--green)" bg="rgba(0,200,150,0.12)" />

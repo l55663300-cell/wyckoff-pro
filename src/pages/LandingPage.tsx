@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { loadContent } from '../utils/contentStore';
-import { loadNotices, getUnreadCount } from '../utils/noticeStore';
+import { getUnreadCountAsync } from '../utils/noticeStore';
 import { getActivePlans, type SubscriptionPlan } from '../utils/subscriptionStore';
 
 export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void }) {
@@ -9,7 +9,8 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
   const openLogin = onOpenLogin ?? (() => navigate('login'));
   const [bannerVisible, setBannerVisible] = useState(true);
   const content = loadContent();
-  const noticeCount = getUnreadCount();
+  const [noticeCount, setNoticeCount] = useState(0);
+  useEffect(() => { void getUnreadCountAsync().then(setNoticeCount); }, []);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
 
   useEffect(() => {

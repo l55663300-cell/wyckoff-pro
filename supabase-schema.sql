@@ -261,3 +261,77 @@ create policy "管理员读写全部查询记录"
 create index if not exists idx_query_logs_uid on public.query_logs(uid);
 create index if not exists idx_query_logs_created_at on public.query_logs(created_at desc);
 
+-- ============================================================
+-- 补丁：管理员可更新所有人的 profile（含 is_admin 字段）
+-- ============================================================
+create policy "管理员可更新所有用户的 profile"
+  on public.profiles for update
+  using (
+    exists (select 1 from public.profiles p where p.uid = auth.uid() and p.is_admin = true)
+  );
+
+-- ============================================================
+-- 9. 用户反馈表
+-- ============================================================
+create table if not exists public.feedback (
+  id          text primary key,
+  uid         uuid not null references auth.users(id) on delete cascade,
+  email       text not null,
+  type        text not null check (type in ('bug','feature','complaint','other')),
+  content     text not null,
+  status      text not null default 'pending' check (status in ('pending','processing','resolved')),
+  reply       text,
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
+);
+
+alter table public.feedback enable row level security;
+
+create policy "用户插入自己的反馈"
+  on public.feedback for insert
+  with check (auth.uid() = uid);
+
+create policy "用户读自己的反馈"
+  on public.feedback for select
+  using (auth.uid() = uid);
+
+create policy "管理员读写全部反馈"
+  on public.feedback for all
+  using (
+    exists (select 1 from public.profiles p where p.uid = auth.uid() and p.is_admin = true)
+  );
+
+create index if not exists idx_feedback_uid on public.feedback(uid);
+create index if not exists idx_feedback_created_at on public.feedback(created_at desc);
+
+-- ============================================================
+-- 10. 系统公告表
+-- ============================================================
+create table if not exists public.notices (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  content     text not null,
+  type        text not null default 'announcement' check (type in ('announcement','ai_upgrade','maintenance','activity')),
+  created_at  timestamptz default now()
+);
+
+alter table public.notices enable row level security;
+
+create policy "所有登录用户可读公告"
+  on public.notices for select
+  using (auth.uid() is not null);
+
+create policy "管理员可推送公告"
+  on public.notices for insert
+  with check (
+    exists (select 1 from public.profiles p where p.uid = auth.uid() and p.is_admin = true)
+  );
+
+create policy "管理员可删除公告"
+  on public.notices for delete
+  using (
+    exists (select 1 from public.profiles p where p.uid = auth.uid() and p.is_admin = true)
+  );
+
+create index if not exists idx_notices_created_at on public.notices(created_at desc);
+

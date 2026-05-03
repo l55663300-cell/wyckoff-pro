@@ -1,7 +1,8 @@
 /**
- * feedbackStore — 用户反馈的 localStorage 持久化
- * key: wyckoff_feedback
+ * feedbackStore — 用户反馈，读写 Supabase feedback 表
  */
+
+import { supabase } from '../lib/supabase';
 
 export type FeedbackType = 'bug' | 'feature' | 'complaint' | 'other';
 export type FeedbackStatus = 'pending' | 'processing' | 'resolved';
@@ -18,8 +19,6 @@ export interface FeedbackItem {
   updatedAt: string;
 }
 
-const LS_KEY = 'wyckoff_feedback';
-
 export const FEEDBACK_TYPE_LABEL: Record<FeedbackType, string> = {
   bug: '🐛 Bug反馈',
   feature: '💡 功能建议',
@@ -33,39 +32,73 @@ export const FEEDBACK_STATUS_LABEL: Record<FeedbackStatus, { label: string; colo
   resolved:   { label: '已解决', color: '#00c896',  bg: 'rgba(0,200,150,0.12)' },
 };
 
+function rowToItem(row: Record<string, unknown>): FeedbackItem {
+  return {
+    id: row.id as string,
+    uid: row.uid as string,
+    email: row.email as string,
+    type: row.type as FeedbackType,
+    content: row.content as string,
+    status: row.status as FeedbackStatus,
+    reply: row.reply as string | undefined,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+/** 管理员后台加载全部反馈（async） */
+export async function loadFeedbackFromDB(): Promise<FeedbackItem[]> {
+  const { data, error } = await supabase
+    .from('feedback')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error || !data) return [];
+  return data.map(rowToItem);
+}
+
+/** 兼容同步调用（返回空数组，页面切换时触发 async 版本） */
 export function loadFeedback(): FeedbackItem[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? (JSON.parse(raw) as FeedbackItem[]) : [];
-  } catch { return []; }
+  return [];
 }
 
-function saveFeedback(items: FeedbackItem[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(items));
-}
-
-export function submitFeedback(u: { uid: string; email: string }, type: FeedbackType, content: string) {
-  const items = loadFeedback();
-  const item: FeedbackItem = {
-    id: `fb_${Date.now()}`,
+/** 用户提交反馈（写 Supabase） */
+export async function submitFeedback(
+  u: { uid: string; email: string },
+  type: FeedbackType,
+  content: string,
+): Promise<FeedbackItem | null> {
+  const id = `fb_${Date.now()}`;
+  const now = new Date().toISOString();
+  const { data, error } = await supabase.from('feedback').insert({
+    id,
     uid: u.uid,
     email: u.email,
     type,
     content,
     status: 'pending',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  items.unshift(item);
-  saveFeedback(items);
-  return item;
+    created_at: now,
+    updated_at: now,
+  }).select().single();
+  if (error || !data) {
+    console.warn('[feedbackStore] 提交失败', error?.message);
+    return null;
+  }
+  return rowToItem(data as Record<string, unknown>);
 }
 
-export function updateFeedbackStatus(id: string, status: FeedbackStatus, reply?: string): FeedbackItem | null {
-  const items = loadFeedback();
-  const idx = items.findIndex(x => x.id === id);
-  if (idx < 0) return null;
-  items[idx] = { ...items[idx], status, reply: reply ?? items[idx].reply, updatedAt: new Date().toISOString() };
-  saveFeedback(items);
-  return items[idx];
+/** 管理员更新反馈状态（写 Supabase） */
+export async function updateFeedbackStatus(
+  id: string,
+  status: FeedbackStatus,
+  reply?: string,
+): Promise<FeedbackItem | null> {
+  const { data, error } = await supabase
+    .from('feedback')
+    .update({ status, reply: reply ?? null, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error || !data) return null;
+  return rowToItem(data as Record<string, unknown>);
 }

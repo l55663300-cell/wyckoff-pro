@@ -21,7 +21,6 @@ import { NotifPanel } from '../components/modals/NotifPanel';
 import { AvatarDropdown } from '../components/modals/AvatarDropdown';
 import { addQueryRecord } from '../utils/queryStore';
 import { addFavCoin, removeFavCoin, loadFavCoins } from '../utils/queryStore';
-import { loadNotices, getUnreadCount, markAllRead } from '../utils/noticeStore';
 import { loadContent } from '../utils/contentStore';
 import { useToast } from '../components/Toast';
 
@@ -183,7 +182,13 @@ export default function AppPage() {
   const [quotaBlockReason, setQuotaBlockReason] = useState('');
   const [showNotif, setShowNotif] = useState(false);
   const [showAvatarDd, setShowAvatarDd] = useState(false);
-  const [unreadNotif] = useState(() => getUnreadCount());
+  const [unreadNotif, setUnreadNotif] = useState(0);
+  useEffect(() => {
+    void (async () => {
+      const { getUnreadCountAsync } = await import('../utils/noticeStore');
+      setUnreadNotif(await getUnreadCountAsync());
+    })();
+  }, []);
   // 指标栏折叠（小屏时可隐藏）
   const [indicatorExpanded, setIndicatorExpanded] = useState(true);
   // 收藏币种
