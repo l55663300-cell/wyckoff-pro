@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import {
-  loadQueries, calcAccuracy, getWeeklyTrend, labelQueryOutcome,
+  loadQueries, calcAccuracy, labelQueryOutcome,
   loadFavCoins, saveFavCoins, addFavCoin, removeFavCoin,
   loadInviteStats,
 } from '../utils/queryStore';
@@ -24,7 +24,6 @@ export default function UserPage() {
   // 真实数据 state
   const [history, setHistory] = useState<QueryRecord[]>([]);
   const [accuracy, setAccuracy] = useState<AccuracyStats | null>(null);
-  const [weekTrend, setWeekTrend] = useState<number[]>(new Array(7).fill(0));
   const [favCoins, setFavCoins] = useState<string[]>([]);
   const [inviteStats, setInviteStats] = useState<InviteStats>({ totalInvited: 0, totalPaid: 0, totalReward: 0, records: [] });
   const [orders, setOrders] = useState<SubscriptionOrder[]>([]);
@@ -100,7 +99,6 @@ export default function UserPage() {
     const uid = user.uid;
     setHistory(loadQueries(uid));
     setAccuracy(calcAccuracy(uid));
-    setWeekTrend(getWeeklyTrend(uid));
     setFavCoins(loadFavCoins(uid));
     setInviteStats(loadInviteStats(uid));
     const [subData, ordersData, quotaData] = await Promise.all([
@@ -142,9 +140,6 @@ export default function UserPage() {
   const todayUsed = sub ? (sub.lastUsedDate === new Date().toISOString().slice(0, 10) ? sub.dailyUsed : 0) : 0;
   const dailyLimit = sub?.dailyLimit ?? 0;
   const progressPct = dailyLimit > 0 ? Math.min(100, Math.round((todayUsed / dailyLimit) * 100)) : 0;
-
-  // 本周趋势最大值（用于相对高度）
-  const maxTrend = Math.max(...weekTrend, 1);
 
   // 充值记录状态映射
   const orderStatusMap: Record<string, { text: string; color: string }> = {
@@ -215,17 +210,6 @@ export default function UserPage() {
               {nameError && <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 6 }}>{nameError}</div>}
               <div style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 14 }}>UID #{user.uid}</div>
 
-              {/* 次数 */}
-              <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <div>
-                  <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 4 }}>剩余查询次数</div>
-                  <div style={{ fontSize: 32, fontWeight: 800, color: '#f0b429' }}>
-                    {quota.isActive ? quota.daily : user.credits}
-                  </div>
-                </div>
-                <button onClick={() => navigate('recharge')} style={{ padding: '7px 16px', borderRadius: 8, background: '#f0b429', color: '#000', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>充值</button>
-              </div>
-
               {/* 会员状态 */}
               {quota.isActive && sub ? (
                 <div style={{ background: 'var(--bg3)', borderRadius: 12, padding: 16, marginBottom: 14 }}>
@@ -246,24 +230,6 @@ export default function UserPage() {
                   <button onClick={() => navigate('recharge')} style={{ padding: '5px 14px', borderRadius: 8, background: '#f0b429', color: '#000', fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer' }}>立即订阅</button>
                 </div>
               )}
-
-              {/* 本周趋势 */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 6 }}>本周查询次数趋势</div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 36 }}>
-                  {weekTrend.map((h, i) => (
-                    <div key={i} style={{
-                      flex: 1,
-                      height: `${Math.max(8, Math.round((h / maxTrend) * 100))}%`,
-                      borderRadius: '2px 2px 0 0',
-                      background: i === 6 ? 'var(--primary)' : 'rgba(240,180,41,0.35)',
-                    }} />
-                  ))}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--t3)', marginTop: 4 }}>
-                  {['周一','周二','周三','周四','周五','周六','今日'].map(d => <span key={d}>{d}</span>)}
-                </div>
-              </div>
 
               {/* 快捷按钮 */}
               <div style={{ display: 'flex', gap: 8 }}>
