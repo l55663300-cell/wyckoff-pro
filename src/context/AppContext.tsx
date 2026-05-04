@@ -18,6 +18,8 @@ export interface UserInfo {
   credits: number;
   inviteCode: string;
   isAdmin: boolean;
+  adminRole?: string;
+  adminPerms?: string[];
 }
 
 interface AppContextType {
@@ -73,6 +75,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             credits: authUser.credits,
             inviteCode: authUser.inviteCode,
             isAdmin: authUser.isAdmin,
+            adminRole: authUser.adminRole,
+            adminPerms: authUser.adminPerms,
           };
           setUser(userInfo);
           setPage(loadLastPage(userInfo));
@@ -127,6 +131,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       credits: u.credits,
       inviteCode: u.inviteCode,
       isAdmin: u.isAdmin,
+      adminRole: u.adminRole,
+      adminPerms: u.adminPerms,
     };
     setUser(userInfo);
     upsertUser(userInfo);

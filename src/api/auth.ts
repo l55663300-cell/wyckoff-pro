@@ -13,6 +13,8 @@ export interface AuthUser {
   credits: number;
   inviteCode: string;
   isAdmin: boolean;
+  adminRole?: string;
+  adminPerms?: string[];
   token: string;
 }
 
@@ -41,12 +43,14 @@ export function checkPasswordStrength(pw: string): {
 async function fetchProfile(uid: string): Promise<{
   invite_code: string;
   is_admin: boolean;
+  admin_role: string | null;
+  admin_perms: string[] | null;
   credits: number;
   status: 'active' | 'banned';
 }> {
   const { data } = await supabase
     .from('profiles')
-    .select('invite_code, is_admin, status')
+    .select('invite_code, is_admin, admin_role, admin_perms, status')
     .eq('uid', uid)
     .single();
 
@@ -68,6 +72,8 @@ async function fetchProfile(uid: string): Promise<{
   return {
     invite_code: data?.invite_code ?? '',
     is_admin: data?.is_admin ?? false,
+    admin_role: data?.admin_role ?? null,
+    admin_perms: (data?.admin_perms as string[] | null) ?? null,
     credits,
     status: (data?.status as 'active' | 'banned') ?? 'active',
   };
@@ -111,6 +117,8 @@ export async function apiLogin(
     credits: profile.credits,
     inviteCode: profile.invite_code,
     isAdmin: profile.is_admin,
+    adminRole: profile.admin_role ?? undefined,
+    adminPerms: profile.admin_perms ?? undefined,
     token: session.access_token,
   };
 }
@@ -242,6 +250,8 @@ export async function apiGetSession(): Promise<AuthUser | null> {
     credits: profile.credits,
     inviteCode: profile.invite_code,
     isAdmin: profile.is_admin,
+    adminRole: profile.admin_role ?? undefined,
+    adminPerms: profile.admin_perms ?? undefined,
     token: session.access_token,
   };
 }

@@ -6,9 +6,10 @@ import { formatPrice } from '../../utils/formatters';
 interface Props {
   symbol: Symbol;
   currentPrice: number;
+  compact?: boolean;
 }
 
-export function OrderBookHeatmap({ symbol, currentPrice }: Props) {
+export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Props) {
   const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -82,10 +83,10 @@ export function OrderBookHeatmap({ symbol, currentPrice }: Props) {
   );
 
   return (
-    <div className="card" style={{ padding: '12px 14px', height: '100%', boxSizing: 'border-box' }}>
+    <div className="card" style={{ padding: compact ? '8px 12px' : '12px 14px', height: '100%', boxSizing: 'border-box' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--t1)' }}>订单簿热力图</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: compact ? 6 : 10 }}>
+        <span style={{ fontWeight: 600, fontSize: compact ? 12 : 13, color: 'var(--t1)' }}>订单簿热力图</span>
         <span style={{
           fontSize: 11, padding: '2px 8px', borderRadius: 20,
           background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0',
@@ -93,7 +94,7 @@ export function OrderBookHeatmap({ symbol, currentPrice }: Props) {
       </div>
 
       {/* 双列卡片 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: compact ? 6 : 8, marginBottom: compact ? 6 : 8 }}>
 
         {/* 买单墙（支撑） */}
         <div style={{

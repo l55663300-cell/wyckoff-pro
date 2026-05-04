@@ -182,6 +182,10 @@ export default function AppPage() {
   const [quotaBlockReason, setQuotaBlockReason] = useState('');
   const [showNotif, setShowNotif] = useState(false);
   const [showAvatarDd, setShowAvatarDd] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'complaint' | 'other'>('bug');
+  const [feedbackContent, setFeedbackContent] = useState('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [unreadNotif, setUnreadNotif] = useState(0);
   useEffect(() => {
     void (async () => {
@@ -912,7 +916,7 @@ export default function AppPage() {
                     onClose={() => setShowAvatarDd(false)}
                     onUser={() => { setShowAvatarDd(false); navigate('user'); }}
                     onRecharge={() => { setShowAvatarDd(false); navigate('recharge'); }}
-                    onFeedback={() => { setShowAvatarDd(false); navigate('user'); }}
+                    onFeedback={() => { setShowAvatarDd(false); setShowFeedbackModal(true); }}
                     onAdmin={() => { setShowAvatarDd(false); navigate('admin'); }}
                     onLogout={() => { setShowAvatarDd(false); localStorage.removeItem(LS_LAST_QUERY_KEY); localStorage.removeItem(LS_RESULT_KEY); localStorage.removeItem(LS_AI_REPORT_KEY); navigate('landing'); }}
                   />
@@ -987,19 +991,19 @@ export default function AppPage() {
                 )}
 
                 {/* K线 + VP */}
-                <div style={{ display: 'flex', height: isMobile ? 260 : 300, flexShrink: 0 }}>
+                <div style={{ display: 'flex', height: isMobile ? 240 : 300, flexShrink: 0 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <CandlestickChart klines={chartKlines} height={isMobile ? 260 : 300} symbol={symbol} timeframe={activeTimeframe} />
+                    <CandlestickChart klines={chartKlines} height={isMobile ? 240 : 300} symbol={symbol} timeframe={activeTimeframe} />
                   </div>
                   {displayResult && (
                     <div style={{ width: 72, background: 'var(--bg3)', borderLeft: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
-                      <VolumeProfileBar profile={displayResult.volumeProfile} symbol={symbol} currentPrice={displayResult.price} height={isMobile ? 260 : 300} />
+                      <VolumeProfileBar profile={displayResult.volumeProfile} symbol={symbol} currentPrice={displayResult.price} height={isMobile ? 240 : 300} />
                     </div>
                   )}
                 </div>
 
                 {/* 指标栏（可折叠） */}
-                <div style={{ borderTop: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg2)' }}>
+                <div style={{ borderTop: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg2)', ...(isMobile ? { margin: '0 0' } : {}) }}>
                   {/* 指标栏标题行（点击折叠） */}
                   <div
                     onClick={() => setIndicatorExpanded(v => !v)}
@@ -1035,8 +1039,12 @@ export default function AppPage() {
 
               {/* 订单簿 */}
               {displayResult && (
-                <div style={{ flexShrink: 0 }}>
-                  <OrderBookHeatmap symbol={symbol} currentPrice={displayResult.price} />
+                <div style={{
+                  flexShrink: 0,
+                  margin: isMobile ? '8px 8px 0' : '0',
+                  ...(isMobile ? { maxHeight: 200, overflow: 'hidden' } : {}),
+                }}>
+                  <OrderBookHeatmap symbol={symbol} currentPrice={displayResult.price} compact={isMobile} />
                 </div>
               )}
             </div>
@@ -1171,6 +1179,73 @@ export default function AppPage() {
           reason={quotaBlockReason}
           uid={user?.uid}
         />
+      )}
+
+      {/* 反馈弹窗 */}
+      {showFeedbackModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 3500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={e => { if (e.target === e.currentTarget) setShowFeedbackModal(false); }}
+        >
+          <div style={{ background: 'var(--bg2)', border: '1.5px solid var(--border)', borderRadius: 18, padding: '28px 24px', maxWidth: 440, width: '92%', position: 'relative' }}>
+            <button onClick={() => setShowFeedbackModal(false)} style={{ position: 'absolute', top: 12, right: 16, background: 'none', border: 'none', color: 'var(--t3)', fontSize: 22, cursor: 'pointer' }}>×</button>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, color: 'var(--t1)' }}>💬 意见反馈</div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>反馈类型</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                {([['bug','🐛 Bug'], ['feature','💡 建议'], ['complaint','🚨 投诉'], ['other','💬 其他']] as const).map(([k, label]) => (
+                  <div key={k} onClick={() => setFeedbackType(k)} style={{
+                    padding: '6px 4px', borderRadius: 8, textAlign: 'center', cursor: 'pointer', fontSize: 11,
+                    border: `1.5px solid ${feedbackType === k ? 'var(--primary)' : 'var(--border)'}`,
+                    background: feedbackType === k ? 'rgba(0,122,255,0.08)' : 'var(--bg3)',
+                    color: feedbackType === k ? 'var(--primary)' : 'var(--t2)',
+                    fontWeight: feedbackType === k ? 700 : 400,
+                  }}>{label}</div>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>问题描述</div>
+              <textarea
+                value={feedbackContent}
+                onChange={e => setFeedbackContent(e.target.value)}
+                placeholder="请描述您遇到的问题或建议..."
+                style={{
+                  width: '100%', minHeight: 100, padding: '10px 12px',
+                  borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'var(--bg3)', color: 'var(--t1)', fontSize: 13,
+                  resize: 'vertical', boxSizing: 'border-box', outline: 'none',
+                }}
+              />
+            </div>
+            <button
+              disabled={feedbackSubmitting || !feedbackContent.trim()}
+              onClick={async () => {
+                if (!user || !feedbackContent.trim()) return;
+                setFeedbackSubmitting(true);
+                try {
+                  const { submitFeedback } = await import('../utils/feedbackStore');
+                  const result = await submitFeedback({ uid: user.uid, email: user.email }, feedbackType, feedbackContent.trim());
+                  if (result) {
+                    showToast('✅ 反馈已提交，感谢您的建议！');
+                    setFeedbackContent('');
+                    setShowFeedbackModal(false);
+                  } else {
+                    showToast('❌ 提交失败，请稍后重试');
+                  }
+                } finally {
+                  setFeedbackSubmitting(false);
+                }
+              }}
+              style={{
+                width: '100%', padding: '11px 0', borderRadius: 10, border: 'none',
+                background: feedbackContent.trim() ? 'linear-gradient(135deg, #f0b429, #e8920a)' : 'var(--bg3)',
+                color: feedbackContent.trim() ? '#000' : 'var(--t3)',
+                fontWeight: 700, fontSize: 14, cursor: feedbackContent.trim() ? 'pointer' : 'default',
+              }}
+            >{feedbackSubmitting ? '提交中...' : '提交反馈'}</button>
+          </div>
+        </div>
       )}
 
       {/* 新手引导蒙版（首次登录后显示） */}

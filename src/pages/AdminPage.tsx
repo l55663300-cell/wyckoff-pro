@@ -110,7 +110,7 @@ const ROLE_DISPLAY: Record<string, { label: string; color: string; bg: string }>
 };
 
 export default function AdminPage() {
-  const { navigate, logout } = useApp();
+  const { navigate, logout, user } = useApp();
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [toast, setToast] = useState('');
 
@@ -212,19 +212,23 @@ export default function AdminPage() {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('uid, email, name, is_admin')
+        .select('uid, email, name, is_admin, admin_role, admin_perms')
         .eq('is_admin', true);
       if (data) {
-        setAdmins(data.map((row, i) => ({
-          id: i + 1,
-          name: row.name ?? row.email?.split('@')[0] ?? '',
-          email: row.email ?? '',
-          role: 'super_admin' as const,
-          customPerms: [],
-          color: 'rgba(240,180,41,0.15)',
-          tc: 'var(--primary)',
-          uid: row.uid,
-        })));
+        setAdmins(data.map((row, i) => {
+          const role = (row.admin_role as AdminUser['role']) ?? 'super_admin';
+          const info = ROLE_DISPLAY[role] ?? ROLE_DISPLAY.custom;
+          return {
+            id: i + 1,
+            name: row.name ?? row.email?.split('@')[0] ?? '',
+            email: row.email ?? '',
+            role,
+            customPerms: (row.admin_perms as string[]) ?? [],
+            color: info.bg,
+            tc: info.color,
+            uid: row.uid,
+          };
+        }));
       }
     } finally {
       setAdminsLoading(false);
@@ -299,7 +303,7 @@ export default function AdminPage() {
   const handleSaveAdmin = async () => {
     if (!editAdmin) return;
     if (!editAdmin.email.trim()) { showToast('请填写邮箱'); return; }
-    // 通过邮箱在 profiles 表查找 uid，然后设置 is_admin=true
+    // 通过邮箱在 profiles 表查找 uid，然后设置 is_admin=true + 角色权限
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('uid')
@@ -309,9 +313,15 @@ export default function AdminPage() {
       showToast('❌ 未找到该邮箱对应的注册用户，请确认邮箱已注册');
       return;
     }
+    const perms = editAdmin.role === 'custom' ? editAdmin.customPerms : ROLE_PERMISSIONS[editAdmin.role] ?? [];
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ is_admin: true, name: editAdmin.name.trim() || undefined })
+      .update({
+        is_admin: true,
+        name: editAdmin.name.trim() || undefined,
+        admin_role: editAdmin.role,
+        admin_perms: perms,
+      })
       .eq('uid', profile.uid);
     if (updateError) {
       showToast('❌ 设置失败：' + updateError.message);
@@ -350,14 +360,21 @@ export default function AdminPage() {
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-          {NAV_GROUPS.map((group, gi) => (
+          {NAV_GROUPS.map((group, gi) => {
+            // 按当前用户的 admin_perms 过滤菜单项（super_admin 或无 perms 时显示全部）
+            const visibleItems = group.items.filter(item => {
+              if (!user?.adminPerms || user.adminPerms.length === 0) return true;
+              return user.adminPerms.includes(item.key);
+            });
+            if (visibleItems.length === 0) return null;
+            return (
             <div key={gi}>
               {group.label && (
                 <div style={{ padding: '10px 20px 4px', fontSize: 11, fontWeight: 600, letterSpacing: '.06em', color: 'var(--t3)', textTransform: 'uppercase' }}>
                   {group.label}
                 </div>
               )}
-              {group.items.map(item => (
+              {visibleItems.map(item => (
                 <div key={item.key} onClick={() => setActiveTab(item.key as AdminTab)}
                   className={`nav-item${activeTab === item.key ? ' active' : ''}`}
                 >
@@ -369,7 +386,8 @@ export default function AdminPage() {
                 <div style={{ height: 1, background: 'var(--border-light)', margin: '6px 16px' }} />
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <div style={{
