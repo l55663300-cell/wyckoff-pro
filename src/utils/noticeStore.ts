@@ -40,13 +40,23 @@ function rowToNotice(row: Record<string, unknown>, readIds: Set<string>): Notice
   };
 }
 
-/** 从 Supabase 加载公告列表（async） */
-export async function loadNoticesFromDB(): Promise<Notice[]> {
-  const { data, error } = await supabase
+/** 从 Supabase 加载公告列表（async）
+ *  若传入 uid，同时加载该用户的定向通知；否则只加载全局公告 */
+export async function loadNoticesFromDB(uid?: string): Promise<Notice[]> {
+  let query = supabase
     .from('notices')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100);
+
+  if (uid) {
+    // 全局公告(uid is null) + 定向给当前用户的通知
+    query = query.or(`uid.is.null,uid.eq.${uid}`);
+  } else {
+    query = query.is('uid', null);
+  }
+
+  const { data, error } = await query;
   if (error || !data) return [];
   const readIds = getReadIds();
   return data.map(row => rowToNotice(row as Record<string, unknown>, readIds));

@@ -1105,7 +1105,7 @@ export default function AdminPage() {
                 ) : (
                   <AdminTable
                     headers={['用户', '类型', '内容摘要', '状态', '提交时间', '操作']}
-                    rows={filtered.map(f => [f.email, FEEDBACK_TYPE_LABEL[f.type], f.content, f.status, fmtDate(f.createdAt), f.id])}
+                    rows={filtered.map(f => [f.email, FEEDBACK_TYPE_LABEL[f.type], f.content.length > 50 ? f.content.slice(0, 50) + '…' : f.content, f.status, fmtDate(f.createdAt), f.id])}
                     renderCell={(val, colIdx, row) => {
                       if (colIdx === 3) {
                         const s = FEEDBACK_STATUS_LABEL[val as keyof typeof FEEDBACK_STATUS_LABEL] ?? FEEDBACK_STATUS_LABEL.pending;
@@ -1117,10 +1117,26 @@ export default function AdminPage() {
                         return (
                           <div style={{ display: 'flex', gap: 6 }}>
                             {fb.status === 'pending' && (
-                              <ActionBtn onClick={async () => { await updateFeedbackStatus(fb.id, 'processing'); void loadFeedbackFromDB().then(setFeedbackList); showToast('✅ 已受理，状态改为处理中'); }} label="受理" color="var(--primary)" />
+                              <ActionBtn onClick={async () => {
+                                await updateFeedbackStatus(fb.id, 'processing');
+                                // 推送感谢通知给该用户
+                                await supabase.from('notices').insert({
+                                  title: '感谢您的反馈，我们已受理 🎉',
+                                  content: `您提交的反馈「${fb.content.slice(0, 30)}${fb.content.length > 30 ? '…' : ''}」已被我们收到并开始处理，感谢您帮助我们改进产品！`,
+                                  type: 'announcement',
+                                  uid: fb.uid,
+                                  created_at: new Date().toISOString(),
+                                });
+                                void loadFeedbackFromDB().then(setFeedbackList);
+                                showToast('✅ 已受理并推送感谢通知给用户');
+                              }} label="受理" color="var(--primary)" />
                             )}
                             {fb.status === 'processing' && (
-                              <ActionBtn onClick={async () => { await updateFeedbackStatus(fb.id, 'resolved'); void loadFeedbackFromDB().then(setFeedbackList); showToast('✅ 已标记为已解决'); }} label="解决" color="var(--green)" />
+                              <ActionBtn onClick={async () => {
+                                await updateFeedbackStatus(fb.id, 'resolved');
+                                void loadFeedbackFromDB().then(setFeedbackList);
+                                showToast('✅ 已标记为已解决');
+                              }} label="解决" color="var(--green)" />
                             )}
                             {fb.status === 'resolved' && (
                               <StatusBadge label="已处理" color="var(--green)" bg="rgba(0,200,150,0.12)" />
@@ -1128,7 +1144,7 @@ export default function AdminPage() {
                           </div>
                         );
                       }
-                      if (colIdx === 2) return <span style={{ fontSize: 12, maxWidth: 200, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val}</span>;
+                      if (colIdx === 2) return <span title={filtered.find(f => f.content.slice(0, 50) + (f.content.length > 50 ? '…' : '') === val || f.content === val)?.content} style={{ fontSize: 12, maxWidth: 240, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'help' }}>{val}</span>;
                       return val;
                     }}
                   />

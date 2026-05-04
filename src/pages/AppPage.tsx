@@ -854,7 +854,7 @@ export default function AppPage() {
               </div>
               {showNotif && (
                 <div id="notifPanel">
-                  <NotifPanel onClose={() => setShowNotif(false)} onGoRecharge={() => { setShowNotif(false); navigate('recharge'); }} />
+                  <NotifPanel onClose={() => setShowNotif(false)} onGoRecharge={() => { setShowNotif(false); navigate('recharge'); }} uid={user?.uid} />
                 </div>
               )}
             </div>

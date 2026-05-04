@@ -4,6 +4,7 @@ import { loadNoticesFromDB, markAllRead, type Notice } from '../../utils/noticeS
 interface Props {
   onClose: () => void;
   onGoRecharge: () => void;
+  uid?: string;
 }
 
 const TYPE_ICON: Record<string, { icon: string; bg: string }> = {
@@ -13,16 +14,16 @@ const TYPE_ICON: Record<string, { icon: string; bg: string }> = {
   activity:     { icon: '🎁', bg: 'rgba(0,200,100,0.12)' },
 };
 
-export function NotifPanel({ onClose, onGoRecharge }: Props) {
+export function NotifPanel({ onClose, onGoRecharge, uid }: Props) {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void loadNoticesFromDB().then(data => {
+    void loadNoticesFromDB(uid).then(data => {
       setNotices(data);
       setLoading(false);
     });
-  }, []);
+  }, [uid]);
 
   const unreadCount = notices.filter(n => !n.read).length;
 

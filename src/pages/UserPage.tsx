@@ -10,9 +10,7 @@ import { getUserSubOrders, getUserSubscription, type UserSubscription } from '..
 import type { QueryRecord, AccuracyStats, InviteStats } from '../utils/queryStore';
 import type { SubscriptionOrder } from '../utils/subscriptionStore';
 
-type UserTab = 'history' | 'accuracy' | 'favorites' | 'invite' | 'rechargeLog' | 'security' | 'feedback';
-
-const FEEDBACK_TYPES = ['🐛 Bug反馈', '💡 功能建议', '🚨 投诉', '💬 其他'];
+type UserTab = 'history' | 'accuracy' | 'favorites' | 'invite' | 'rechargeLog' | 'security';
 
 export default function UserPage() {
   const { user, logout, navigate, getQuota } = useApp();
@@ -20,8 +18,6 @@ export default function UserPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(user?.name ?? '');
   const [nameError, setNameError] = useState('');
-  const [fbType, setFbType] = useState(0);
-  const [fbText, setFbText] = useState('');
   const [toast, setToast] = useState('');
   const [showLogout, setShowLogout] = useState(false);
 
@@ -139,7 +135,6 @@ export default function UserPage() {
     { key: 'invite', label: '邀请返利' },
     { key: 'rechargeLog', label: '充值记录' },
     { key: 'security', label: '账户安全' },
-    { key: 'feedback', label: '反馈中心' },
   ];
 
   // 会员状态
@@ -600,40 +595,7 @@ export default function UserPage() {
               </div>
             )}
 
-            {/* ── 反馈中心 ── */}
-            {activeTab === 'feedback' && (
-              <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginTop: 16 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>反馈中心</div>
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)', marginBottom: 10 }}>提交新反馈</div>
-                  <div style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 6 }}>反馈类型</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-                    {FEEDBACK_TYPES.map((t, i) => (
-                      <button key={t} onClick={() => setFbType(i)} style={{
-                        padding: '5px 14px', borderRadius: 20,
-                        border: `1.5px solid ${fbType === i ? 'var(--primary)' : 'var(--border)'}`,
-                        background: fbType === i ? 'var(--primary)' : 'transparent',
-                        color: fbType === i ? '#000' : 'var(--t2)', fontSize: 12, cursor: 'pointer',
-                        fontWeight: fbType === i ? 600 : 400,
-                      }}>{t}</button>
-                    ))}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 5 }}>详细描述 <span style={{ color: 'var(--red)' }}>*</span></div>
-                  <textarea
-                    value={fbText} onChange={e => setFbText(e.target.value)}
-                    placeholder="请描述您遇到的问题或建议，越详细越好，方便我们快速定位..."
-                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg3)', border: '1.5px solid var(--border)', borderRadius: 10, color: 'var(--t1)', fontSize: 13, padding: '10px 12px', resize: 'vertical', minHeight: 90, outline: 'none', fontFamily: 'inherit' }}
-                    onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
-                    onBlur={e => (e.target.style.borderColor = 'var(--border)')}
-                  />
-                  <button onClick={() => {
-                    if (!fbText.trim()) { showToast('请填写反馈内容'); return; }
-                    showToast('反馈已提交，我们会尽快处理并通过站内通知回复您 ✅');
-                    setFbText('');
-                  }} style={{ marginTop: 14, padding: '9px 28px', borderRadius: 10, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #f0b429, #e8920a)', color: '#000', fontWeight: 700, fontSize: 13 }}>提交反馈</button>
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
       </div>

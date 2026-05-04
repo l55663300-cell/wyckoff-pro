@@ -66,7 +66,8 @@ export function addQueryRecord(r: Omit<QueryRecord, 'id' | 'createdAt'>) {
     phase: newRecord.phase,
     created_at: newRecord.createdAt,
   }).then(({ error }) => {
-    if (error) console.warn('[queryStore] Supabase 写入失败，仅本地记录', error.message);
+    if (error) console.error('[queryStore] Supabase 写入失败:', error.code, error.message, error.details);
+    else console.log('[queryStore] 查询记录已同步 Supabase:', newRecord.id);
   });
 
   return newRecord;
