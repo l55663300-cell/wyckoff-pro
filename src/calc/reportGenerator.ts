@@ -46,7 +46,7 @@ export function generateReport(result: AnalysisResult): string {
   const fgAlert = Math.abs(sentiment.fearGreedChange) >= 15 ? ` ⚡变化${formatPercent(sentiment.fearGreedChange, 0)}` : '';
   const frAlert = sentiment.fundingRateAlert ? ' ⚠️异常' : '';
 
-  const newsSection = news.slice(0, 3).map((n, i) => `${i + 1}. ${n.title.slice(0, 60)}... [${n.source}]`).join('\n- ');
+  const newsSection = (news ?? []).slice(0, 3).map((n, i) => `${i + 1}. ${n.title.slice(0, 60)}... [${n.source}]`).join('\n- ');
 
   const poc = result.volumeProfile.find((n) => n.isPOC);
   const pocStr = poc ? `POC @ $${formatPrice(poc.priceMid, symbol)}` : '无明显POC';

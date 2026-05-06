@@ -99,7 +99,7 @@ function buildMarketContext(result: AnalysisResult): string {
   const priceStr = formatPrice(price, symbol);
   const poc = volumeProfile.find((n) => n.isPOC);
 
-  const newsText = news.slice(0, 5).map((n, i) =>
+  const newsText = (news ?? []).slice(0, 5).map((n, i) =>
     `  ${i + 1}. ${n.titleZh ?? n.title} [${n.source}]`
   ).join('\n');
 
