@@ -139,7 +139,7 @@ export interface AnalysisResult {
   scoring: ScoringResult;
   risk: RiskPlan;
   sentiment: SentimentData;
-  news: NewsItem[];
+  news?: NewsItem[];
   report: string;
   /** AI 大模型生成的深度报告（仅当后台配置了 LLM 且调用成功时存在） */
   aiReport?: AIStrategyReport;

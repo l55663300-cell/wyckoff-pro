@@ -10,8 +10,7 @@ import { VolumeProfileBar } from '../components/chart/VolumeProfileBar';
 import { OrderBookHeatmap } from '../components/chart/OrderBookHeatmap';
 import { IndicatorPanel } from '../components/indicators/IndicatorPanel';
 import { ReportPanel } from '../components/report/ReportPanel';
-import { NewsPanel } from '../components/news/NewsPanel';
-import { fetchNewsWithSentiment, CategorizedNewsItem } from '../api/newsApi';
+import { TrendingPanel } from '../components/news/TrendingPanel';
 import { WechatAlertModal } from '../components/WechatAlertModal';
 import { WechatPushConfig, loadPushConfig, sendWechatPush, buildEntryAlertMessage } from '../utils/wechatPush';
 import { formatPrice, formatPercent } from '../utils/formatters';
@@ -26,7 +25,7 @@ import { useToast } from '../components/Toast';
 import { useT, toggleLang } from '../i18n';
 
 const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000;
-const NEWS_REFRESH_INTERVAL = 30 * 60 * 1000; // 30分钟刷新一次新闻
+
 
 const TF_LIST: { key: Timeframe; label: string }[] = [
   { key: '15m', label: '15m' },
@@ -173,9 +172,7 @@ export default function AppPage() {
   // 记录每个 key 最近一次真实分析时间，用于冷却判断
   const lastAnalyzeTimeRef = useRef<Map<string, number>>(new Map());
 
-  const [news, setNews] = useState<CategorizedNewsItem[]>([]);
-  const [allNews, setAllNews] = useState<CategorizedNewsItem[]>([]);
-  const newsTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [rightTab, setRightTab] = useState<RightPanelTab>('ai');
   const [quotaInfo, setQuotaInfo] = useState<{ daily: number; total: number; expireAt: string | null; isActive: boolean }>({ daily: 0, total: 0, expireAt: null, isActive: false });
   const [bannerVisible, setBannerVisible] = useState(true);
@@ -207,18 +204,6 @@ export default function AppPage() {
   });
 
   // 新闻独立30分钟刷新
-  useEffect(() => {
-    let cancelled = false;
-    async function loadNews() {
-      try {
-        const r = await fetchNewsWithSentiment();
-        if (!cancelled) { setNews(r.displayNews); setAllNews(r.allNews); }
-      } catch {}
-    }
-    loadNews();
-    newsTimerRef.current = setInterval(loadNews, NEWS_REFRESH_INTERVAL);
-    return () => { cancelled = true; if (newsTimerRef.current) clearInterval(newsTimerRef.current); };
-  }, []);
 
   // 同步 quotaInfo state（getQuota 是 async，不能在 JSX 里直接调用）
   useEffect(() => {
@@ -1069,7 +1054,7 @@ export default function AppPage() {
                 {([
                   { key: 'ai', label: 'AI策略报告' },
                   { key: 'wyckoff', label: '威科夫分析' },
-                  { key: 'news', label: '新闻舆情' },
+                  { key: 'news', label: '社交热度' },
                 ] as { key: RightPanelTab; label: string }[]).map(t => (
                   <div key={t.key} onClick={() => setRightTab(t.key)} style={{
                     flex: 1, padding: 9, textAlign: 'center', fontSize: 12, fontWeight: 600,
@@ -1091,7 +1076,7 @@ export default function AppPage() {
                 {rightTab === 'ai' && (
                   displayResult ? (
                     <div style={{ padding: 14 }}>
-                      <ReportPanel result={{ ...displayResult, news }} activeTimeframe={activeTimeframe} />
+                      <ReportPanel result={{ ...displayResult, news: [] }} activeTimeframe={activeTimeframe} />
                     </div>
                   ) : (
                     <EmptyPanelGuide onAnalyze={() => handleAnalyze()} />
@@ -1106,7 +1091,7 @@ export default function AppPage() {
                 )}
                 {rightTab === 'news' && (
                   <div style={{ padding: 14 }}>
-                    <NewsPanel news={news} allNews={allNews} autoFetch={false} />
+                    <TrendingPanel />
                   </div>
                 )}
               </div>
@@ -1124,7 +1109,7 @@ export default function AppPage() {
               {mobileTab === 'report' && (
                 displayResult ? (
                   <div style={{ padding: 14, paddingBottom: 72 }}>
-                    <ReportPanel result={{ ...displayResult, news }} activeTimeframe={activeTimeframe} />
+                    <ReportPanel result={{ ...displayResult, news: [] }} activeTimeframe={activeTimeframe} />
                   </div>
                 ) : (
                   <div style={{ paddingBottom: 72 }}><EmptyPanelGuide onAnalyze={() => handleAnalyze()} /></div>
@@ -1139,7 +1124,7 @@ export default function AppPage() {
               )}
               {mobileTab === 'news' && (
                 <div style={{ padding: 14, paddingBottom: 72 }}>
-                  <NewsPanel news={news} allNews={allNews} autoFetch={false} />
+                  <TrendingPanel />
                 </div>
               )}
             </div>
@@ -1154,7 +1139,7 @@ export default function AppPage() {
             { key: 'chart', icon: '📊', label: '图表' },
             { key: 'report', icon: '🤖', label: 'AI报告' },
             { key: 'wyckoff', icon: '🦞', label: '威科夫' },
-            { key: 'news', icon: '📰', label: '新闻' },
+            { key: 'news', icon: '🔥', label: '热度' },
           ] as { key: MobileTab; icon: string; label: string }[]).map(t => (
             <button
               key={t.key}
