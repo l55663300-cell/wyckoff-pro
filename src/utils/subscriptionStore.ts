@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '../lib/supabase';
+import { loadSysConfig } from './sysConfigStore';
 
 // ─── 类型定义（保持与原版一致，对外接口不变） ────────────────────────────────
 
@@ -372,7 +373,44 @@ export async function submitSubOrder(
     .insert(order)
     .select()
     .single();
-  return rowToOrder(data!);
+  const result = rowToOrder(data!);
+
+  // 异步通知管理员（不阻塞用户操作）
+  void notifyAdminNewOrder(result);
+
+  return result;
+}
+
+/** 通知管理员有新订单：微信推送 + 邮件 */
+async function notifyAdminNewOrder(order: SubscriptionOrder) {
+  const cfg = loadSysConfig();
+  const title = `💰 新充值订单 — ${order.email}`;
+  const body = `**用户**：${order.email}\n**套餐**：${order.planName}\n**金额**：$${order.amountUsd} USDT\n**时间**：${new Date(order.createdAt).toLocaleString('zh-CN')}\n\n请登录后台审核确认。`;
+
+  // 微信推送（Server酱）
+  if (cfg.adminNotifySendKey?.trim()) {
+    const key = cfg.adminNotifySendKey.trim();
+    void fetch(`https://sctapi.ftqq.com/${key}.send?title=${encodeURIComponent(title)}&desp=${encodeURIComponent(body)}`).catch(() => {});
+  }
+
+  // 邮件通知（Resend）
+  if (cfg.adminNotifyEmail?.trim()) {
+    void fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Resend API Key 存在 Cloudflare Pages 环境变量 RESEND_API_KEY，
+        // 此处前端直接调用仅作临时方案；生产建议通过 Cloudflare Worker 代理
+        Authorization: `Bearer ${(typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_RESEND_API_KEY) ?? ''}`,
+      },
+      body: JSON.stringify({
+        from: 'noreply@wyckoff.pro',
+        to: cfg.adminNotifyEmail.trim(),
+        subject: title,
+        text: body,
+      }),
+    }).catch(() => {});
+  }
 }
 
 export async function confirmSubOrder(orderId: string, adminNote?: string): Promise<SubscriptionOrder | null> {
@@ -422,8 +460,6 @@ export async function getUserSubOrders(uid: string): Promise<SubscriptionOrder[]
 }
 
 // ─── 免费试用套餐（动态读取后台配置） ──────────────────────────────────────────
-
-import { loadSysConfig } from './sysConfigStore';
 
 export function getFreeTrialPlan(): SubscriptionPlan {
   const cfg = loadSysConfig();

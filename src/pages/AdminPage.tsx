@@ -1582,6 +1582,12 @@ export default function AdminPage() {
               <FormRow label="客服邮箱">
                 <input style={inputStyle} value={sysCfg.supportEmail} onChange={e => setSysCfg(p => ({ ...p, supportEmail: e.target.value }))} type="email" />
               </FormRow>
+              <FormRow label="管理员通知邮箱（充值下单时收邮件提醒）">
+                <input style={inputStyle} value={sysCfg.adminNotifyEmail ?? ''} onChange={e => setSysCfg(p => ({ ...p, adminNotifyEmail: e.target.value }))} type="email" placeholder="填写后有新订单时发邮件提醒" />
+              </FormRow>
+              <FormRow label="管理员微信 SendKey（Server酱，充值下单时推送微信）">
+                <input style={inputStyle} value={sysCfg.adminNotifySendKey ?? ''} onChange={e => setSysCfg(p => ({ ...p, adminNotifySendKey: e.target.value }))} placeholder="SCT_xxxxxxx，前往 sct.ftqq.com 获取" />
+              </FormRow>
               <FormRow label="客服微信号（选填）">
                 <input style={inputStyle} value={sysCfg.supportWeChat ?? ''} onChange={e => setSysCfg(p => ({ ...p, supportWeChat: e.target.value }))} placeholder="填写后将在订阅页展示" />
               </FormRow>

@@ -23,6 +23,10 @@ export interface SysConfig {
   freeTrialDailyLimit: number;
   /** 新用户注册赠送有效天数 */
   freeTrialDays: number;
+  /** 管理员通知邮箱（充值订单到来时发邮件提醒） */
+  adminNotifyEmail?: string;
+  /** 管理员微信推送 Server酱 SendKey（充值订单到来时推送微信） */
+  adminNotifySendKey?: string;
   /** 邀请人奖励次数（被邀请人首充后发放） */
   inviterRewardCredits: number;
   /** 被邀请人注册奖励次数 */
@@ -50,8 +54,10 @@ const DEFAULT_CONFIG: SysConfig = {
   paymentNote: '📌 请向上方对应网络地址转账对应金额 USDT\n📧 转账备注请填写您的注册邮箱\n⚠️ 请确认网络类型与钱包一致，否则资产将永久丢失',
   registrationOpen: true,
   maintenanceMode: false,
-  freeTrialDailyLimit: 5,
-  freeTrialDays: 7,
+  freeTrialDailyLimit: 3,
+  freeTrialDays: 3,
+  adminNotifyEmail: '',
+  adminNotifySendKey: '',
   inviterRewardCredits: 10,
   inviteeRewardCredits: 5,
   inviteRewardCap: 500,

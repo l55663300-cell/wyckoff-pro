@@ -23,6 +23,7 @@ import { addQueryRecord } from '../utils/queryStore';
 import { addFavCoin, removeFavCoin, loadFavCoins } from '../utils/queryStore';
 import { loadContent } from '../utils/contentStore';
 import { useToast } from '../components/Toast';
+import { useT, toggleLang } from '../i18n';
 
 const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000;
 const NEWS_REFRESH_INTERVAL = 30 * 60 * 1000; // 30分钟刷新一次新闻
@@ -123,6 +124,7 @@ type RightPanelTab = 'ai' | 'wyckoff' | 'news';
 export default function AppPage() {
   const { user, navigate, consumeQuota, getQuota } = useApp();
   const { showToast } = useToast();
+  const t = useT();
 
   const [symbol, setSymbol] = useState<Symbol>(() => loadLastQuery()?.symbol ?? 'BTCUSDT');
   const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>(() => loadLastQuery()?.timeframe ?? '1h');
@@ -802,7 +804,7 @@ export default function AppPage() {
                   }}
                 >
                   <RefreshCw size={10} />
-                  {reanalyzeCooldown > 0 ? `${reanalyzeCooldown}s` : '重新分析'}
+                  {reanalyzeCooldown > 0 ? `${reanalyzeCooldown}s` : t.nav.reanalyze}
                 </button>
               </div>
             )}
@@ -811,8 +813,8 @@ export default function AppPage() {
             {(() => {
               const quota = quotaInfo;
               const label = quota.isActive
-                ? `今日剩余 ${quota.daily}/${quota.total}`
-                : quota.expireAt ? '订阅已到期' : '未订阅';
+                ? t.nav.todayRemain(quota.daily, quota.total)
+                : quota.expireAt ? t.nav.subscriptionExpired : t.nav.noSubscription;
               const color = !quota.isActive ? 'var(--red)' : quota.daily <= 5 ? 'var(--warn)' : 'var(--primary)';
               const bg = !quota.isActive ? 'rgba(239,68,68,0.08)' : quota.daily <= 5 ? 'rgba(245,158,11,0.08)' : 'rgba(240,180,41,0.08)';
               const border = !quota.isActive ? 'rgba(239,68,68,0.25)' : quota.daily <= 5 ? 'rgba(245,158,11,0.3)' : 'rgba(240,180,41,0.2)';
@@ -836,8 +838,18 @@ export default function AppPage() {
               borderRadius: 8, background: autoRefresh ? 'rgba(240,180,41,0.08)' : 'transparent',
               color: autoRefresh ? 'var(--primary)' : 'var(--t3)', fontSize: 11, cursor: 'pointer',
             }}>
-              <Activity size={11} />{autoRefresh ? '自动' : '手动'}
+              <Activity size={11} />{autoRefresh ? t.nav.auto : t.nav.manual}
             </button>}
+
+            {/* 语言切换 */}
+            <button
+              onClick={toggleLang}
+              style={{
+                padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                border: '1px solid var(--border)', background: 'transparent',
+                color: 'var(--t2)', cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >{t.nav.langToggle}</button>
 
             {/* 通知 */}
             <div style={{ position: 'relative' }}>
@@ -867,7 +879,7 @@ export default function AppPage() {
               display: 'flex', alignItems: 'center', gap: 5, opacity: loading ? 0.7 : 1, whiteSpace: 'nowrap',
             }}>
               <RefreshCw size={13} className={loading ? 'spin-slow' : ''} />
-              {loading ? '分析中...' : '🤖 AI分析'}
+              {loading ? t.nav.analyzing : t.nav.aiAnalysis}
             </button>
 
             {/* 推送按钮（手机端隐藏） */}

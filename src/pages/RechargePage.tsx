@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   getActivePlans, getActiveWallets, submitSubOrder, getUserSubOrders, getUserSubscription,
@@ -8,6 +8,25 @@ import {
 import { loadSysConfig } from '../utils/sysConfigStore';
 
 type Step = 'pick' | 'pay' | 'done';
+
+// NowPayments 自动支付状态
+interface AutoPayState {
+  paymentId: number | null;
+  payAddress: string;
+  payAmount: number;
+  payCurrency: string;
+  status: 'idle' | 'creating' | 'waiting' | 'finished' | 'error';
+  errorMsg: string;
+}
+
+const INITIAL_AUTO_PAY: AutoPayState = {
+  paymentId: null,
+  payAddress: '',
+  payAmount: 0,
+  payCurrency: '',
+  status: 'idle',
+  errorMsg: '',
+};
 
 export default function RechargePage() {
   const { navigate, user, getQuota } = useApp();
@@ -24,6 +43,111 @@ export default function RechargePage() {
   const [showOrders, setShowOrders] = useState(false);
   const [currentSub, setCurrentSub] = useState<UserSubscription | null>(null);
   const [quota, setQuota] = useState<{ daily: number; total: number; expireAt: string | null; isActive: boolean }>({ daily: 0, total: 0, expireAt: null, isActive: false });
+
+  // 自动支付（NowPayments）
+  const [autoPay, setAutoPay] = useState<AutoPayState>(INITIAL_AUTO_PAY);
+  const [autoPayMode, setAutoPayMode] = useState(false);   // true=自动支付模式; false=手动模式
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentOrderId = useRef<string>('');
+
+  // 清理轮询
+  const clearPoll = () => {
+    if (pollTimer.current) { clearInterval(pollTimer.current); pollTimer.current = null; }
+  };
+
+  // 轮询查询订单状态
+  const startPolling = (orderId: string) => {
+    clearPoll();
+    pollTimer.current = setInterval(async () => {
+      try {
+        const { data } = await import('../lib/supabase').then(m => m.supabase
+          .from('subscription_orders')
+          .select('status')
+          .eq('id', orderId)
+          .single()
+        );
+        if (data?.status === 'confirmed') {
+          clearPoll();
+          setAutoPay(p => ({ ...p, status: 'finished' }));
+          setStep('done');
+          void refreshData();
+        }
+      } catch { /* 忽略轮询网络错误 */ }
+    }, 8000);  // 每 8 秒查一次
+  };
+
+  // 创建自动支付订单
+  const handleCreateAutoPay = async () => {
+    if (!user || !selectedPlan) return;
+    setAutoPay({ ...INITIAL_AUTO_PAY, status: 'creating' });
+
+    const orderId = `SO${Date.now()}`;
+    currentOrderId.current = orderId;
+
+    try {
+      // 1. 调用 Worker 创建 NowPayments 支付
+      const resp = await fetch('/api/nowpayments/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          price_amount: selectedPlan.priceUsd,
+          order_id: orderId,
+          order_description: `${selectedPlan.name} 订阅 — ${user.email}`,
+          payer_email: user.email,
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: '网络错误' })) as { error?: string };
+        throw new Error(err.error ?? `HTTP ${resp.status}`);
+      }
+
+      const payment = await resp.json() as {
+        payment_id: number;
+        pay_address: string;
+        pay_amount: number;
+        pay_currency: string;
+      };
+
+      // 2. 写订单到 Supabase（status=pending，webhook 收到后自动改 confirmed）
+      // 用一个虚拟 wallet 对象兼容 submitSubOrder 接口
+      const virtualWallet: PaymentWallet = {
+        id: 'nowpayments_auto',
+        label: 'TRC20 USDT（自动）',
+        address: payment.pay_address,
+        network: 'TRC20',
+        isActive: true,
+        sortOrder: 0,
+        updatedAt: new Date().toISOString(),
+      };
+      await submitSubOrder(
+        { uid: user.uid, email: user.email },
+        selectedPlan,
+        virtualWallet,
+        String(payment.payment_id),
+        `NowPayments 自动支付，payment_id=${payment.payment_id}`,
+      );
+
+      setAutoPay({
+        paymentId: payment.payment_id,
+        payAddress: payment.pay_address,
+        payAmount: payment.pay_amount,
+        payCurrency: payment.pay_currency,
+        status: 'waiting',
+        errorMsg: '',
+      });
+
+      // 3. 开始轮询
+      startPolling(orderId);
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setAutoPay({ ...INITIAL_AUTO_PAY, status: 'error', errorMsg: msg });
+    }
+  };
+
+  // 离开时清理
+  useEffect(() => () => clearPoll(), []);
 
   // 刷新套餐和钱包（每次回到 pick 步骤都重新加载，确保后台修改后立即生效）
   const refreshData = useCallback(async () => {
@@ -61,6 +185,9 @@ export default function RechargePage() {
     setTxHash('');
     setProofNote('');
     setAgreed(false);
+    setAutoPay(INITIAL_AUTO_PAY);
+    setAutoPayMode(false);  // 默认手动支付（自动支付 KYC 通过后再切换）
+    clearPoll();
     setStep('pay');
   };
 
@@ -75,7 +202,7 @@ export default function RechargePage() {
     setStep('done');
   };
 
-  const handleBack = () => { setStep('pick'); setSelectedPlan(null); };
+  const handleBack = () => { clearPoll(); setAutoPay(INITIAL_AUTO_PAY); setStep('pick'); setSelectedPlan(null); };
 
   if (!user) { navigate('login'); return null; }
 
@@ -312,6 +439,102 @@ export default function RechargePage() {
               </div>
             )}
 
+            {/* 支付方式切换 */}
+            <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+              {([true, false] as const).map(isAuto => (
+                <button
+                  key={String(isAuto)}
+                  onClick={() => { setAutoPayMode(isAuto); setAutoPay(INITIAL_AUTO_PAY); clearPoll(); }}
+                  style={{
+                    flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 700,
+                    border: 'none', cursor: 'pointer',
+                    background: autoPayMode === isAuto ? 'linear-gradient(135deg, #f0b429, #e8920a)' : 'var(--bg3)',
+                    color: autoPayMode === isAuto ? '#000' : 'var(--t2)',
+                    transition: 'all .15s',
+                  }}
+                >
+                  {isAuto ? '⚡ 自动支付（到账即开通）' : '手动支付（转账后提交凭证）'}
+                </button>
+              ))}
+            </div>
+
+            {/* ── 自动支付模式 ── */}
+            {autoPayMode && (
+              <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px', marginBottom: 18 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>⚡</span> TRC20 USDT 自动支付
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--t3)', fontWeight: 400 }}>链上确认后自动开通，无需等待审核</span>
+                </div>
+
+                {autoPay.status === 'idle' && (
+                  <button
+                    onClick={handleCreateAutoPay}
+                    style={{
+                      width: '100%', padding: 14, borderRadius: 10,
+                      background: 'linear-gradient(135deg, #f0b429, #e8920a)',
+                      color: '#000', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    生成专属收款地址
+                  </button>
+                )}
+
+                {autoPay.status === 'creating' && (
+                  <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--t2)', fontSize: 14 }}>
+                    正在生成收款地址...
+                  </div>
+                )}
+
+                {autoPay.status === 'error' && (
+                  <div style={{ color: 'var(--red)', fontSize: 13, marginBottom: 12 }}>
+                    ❌ 生成失败：{autoPay.errorMsg}<br />
+                    <button onClick={handleCreateAutoPay} style={{ marginTop: 10, padding: '6px 18px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'var(--bg3)', color: 'var(--t1)', border: '1px solid var(--border)' }}>重试</button>
+                  </div>
+                )}
+
+                {(autoPay.status === 'waiting' || autoPay.status === 'finished') && (
+                  <div>
+                    <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
+                      <div style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 4 }}>收款地址（TRC20 USDT）</div>
+                      <div style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--t1)', wordBreak: 'break-all', letterSpacing: '.3px', marginBottom: 8 }}>
+                        {autoPay.payAddress}
+                      </div>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(autoPay.payAddress); showToast('✅ 地址已复制'); }}
+                        style={{ padding: '3px 14px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: 'transparent', color: 'var(--primary)', border: '1px solid rgba(240,180,41,0.3)' }}
+                      >复制地址</button>
+                    </div>
+                    <div style={{ background: 'rgba(240,180,41,0.06)', border: '1px solid rgba(240,180,41,0.25)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: 'var(--t2)', lineHeight: 2, marginBottom: 14 }}>
+                      <div>💰 请向上方地址转账 <strong style={{ color: 'var(--primary)', fontSize: 15 }}>{autoPay.payAmount} {autoPay.payCurrency.toUpperCase()}</strong></div>
+                      <div>⚠️ 请务必转入 <strong>精确金额</strong>，多转少转均可能导致确认失败</div>
+                      <div style={{ fontSize: 11, color: 'var(--t3)' }}>此地址仅本次有效，请勿重复使用</div>
+                    </div>
+
+                    {autoPay.status === 'waiting' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: 'rgba(0,150,255,0.06)', border: '1px solid rgba(0,150,255,0.2)', borderRadius: 10 }}>
+                        <div style={{
+                          width: 16, height: 16, borderRadius: '50%',
+                          border: '2px solid rgba(0,150,255,0.3)',
+                          borderTop: '2px solid #4af',
+                          animation: 'spin 1s linear infinite',
+                          flexShrink: 0,
+                        }} />
+                        <span style={{ fontSize: 13, color: 'var(--t2)' }}>等待链上确认，到账后自动开通（TRC20 约 1-3 分钟）...</span>
+                      </div>
+                    )}
+                    {autoPay.status === 'finished' && (
+                      <div style={{ color: 'var(--green)', fontWeight: 700, fontSize: 14, textAlign: 'center' }}>
+                        ✅ 已确认到账，订阅正在开通...
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── 手动支付模式 ── */}
+            {!autoPayMode && (
+              <>
             {/* 钱包地址选择 */}
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px', marginBottom: 18 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -445,6 +668,8 @@ export default function RechargePage() {
             }}>
               提交订阅申请 · {selectedPlan.name} · ${selectedPlan.priceUsd}
             </button>
+            </>
+            )}
           </>
         )}
 
@@ -452,10 +677,14 @@ export default function RechargePage() {
         {step === 'done' && (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <div style={{ fontSize: 60, marginBottom: 16 }}>✅</div>
-            <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>订阅申请已提交</div>
+            <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>
+              {autoPayMode ? '订阅已自动开通！' : '订阅申请已提交'}
+            </div>
             <div style={{ fontSize: 14, color: 'var(--t2)', lineHeight: 1.8, marginBottom: 10 }}>
-              管理员将在{sysConfig.reviewTimeNote}审核并开通订阅<br />
-              开通后您的账户将自动生效，刷新页面即可查看
+              {autoPayMode
+                ? <>链上已确认到账，您的订阅已自动激活，立即开始使用吧 🎉</>
+                : <>管理员将在{sysConfig.reviewTimeNote}审核并开通订阅<br />开通后您的账户将自动生效，刷新页面即可查看</>
+              }
             </div>
             <div style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 30 }}>
               有疑问请联系：<a href={`mailto:${sysConfig.supportEmail}`} style={{ color: 'var(--primary)' }}>{sysConfig.supportEmail}</a>
