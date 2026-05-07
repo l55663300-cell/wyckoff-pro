@@ -41,6 +41,8 @@ export interface SysConfig {
   apiRateLimitPerMin: number;
   /** AI查询限速（次/小时/用户），作为兜底上限 */
   aiQueryLimitPerHour: number;
+  /** 是否开启自动支付（NowPayments），KYC 通过后开启 */
+  autoPayEnabled: boolean;
 }
 
 const DEFAULT_CONFIG: SysConfig = {
@@ -65,6 +67,7 @@ const DEFAULT_CONFIG: SysConfig = {
   loginLockMinutes: 30,
   apiRateLimitPerMin: 60,
   aiQueryLimitPerHour: 100,
+  autoPayEnabled: false,
 };
 
 export function loadSysConfig(): SysConfig {

@@ -439,7 +439,8 @@ export default function RechargePage() {
               </div>
             )}
 
-            {/* 支付方式切换 */}
+            {/* 支付方式切换（仅在后台开启自动支付时显示） */}
+            {sysConfig.autoPayEnabled && (
             <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
               {([true, false] as const).map(isAuto => (
                 <button
@@ -457,9 +458,10 @@ export default function RechargePage() {
                 </button>
               ))}
             </div>
+            )}
 
             {/* ── 自动支付模式 ── */}
-            {autoPayMode && (
+            {sysConfig.autoPayEnabled && autoPayMode && (
               <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px', marginBottom: 18 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>⚡</span> TRC20 USDT 自动支付
@@ -533,7 +535,7 @@ export default function RechargePage() {
             )}
 
             {/* ── 手动支付模式 ── */}
-            {!autoPayMode && (
+            {(!sysConfig.autoPayEnabled || !autoPayMode) && (
               <>
             {/* 钱包地址选择 */}
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px', marginBottom: 18 }}>

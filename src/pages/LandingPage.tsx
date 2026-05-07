@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { loadContent } from '../utils/contentStore';
 import { getUnreadCountAsync } from '../utils/noticeStore';
 import { getActivePlans, type SubscriptionPlan } from '../utils/subscriptionStore';
+import { useT } from '../i18n';
 
 export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void }) {
   const { navigate } = useApp();
@@ -10,6 +11,7 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
   const [bannerVisible, setBannerVisible] = useState(true);
   const content = loadContent();
   const [noticeCount, setNoticeCount] = useState(0);
+  const t = useT();
   useEffect(() => { void getUnreadCountAsync().then(setNoticeCount); }, []);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
 
@@ -19,11 +21,32 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
 
   // 静态后备套餐（数据库为空时展示）
   const staticPlans = [
-    { id: 'basic', name: '基础版', priceUsd: 68, durationDays: 30, dailyLimit: 30, popular: false, perks: ['每日30次AI分析', '500+币种支持', '全功能访问', '实时行情数据'], cycle: 'monthly' as const },
+    { id: 'basic', name: t.landing.featuresList[0] ? '基础版' : 'Basic', priceUsd: 68, durationDays: 30, dailyLimit: 30, popular: false, perks: ['每日30次AI分析', '500+币种支持', '全功能访问', '实时行情数据'], cycle: 'monthly' as const },
     { id: 'pro', name: '专业版', priceUsd: 168, durationDays: 30, dailyLimit: 100, popular: true, perks: ['每日100次AI分析', '500+币种支持', '全功能访问', '优先响应速度', '策略历史记录'], cycle: 'monthly' as const },
     { id: 'elite', name: '旗舰版', priceUsd: 388, durationDays: 90, dailyLimit: 200, popular: false, perks: ['每日200次AI分析', '500+币种支持', '最快响应速度', '邮件信号推送', '专属客服支持'], cycle: 'quarterly' as const },
   ];
   const displayPlans = plans.length > 0 ? plans : staticPlans;
+
+  const navLinks = [
+    { label: t.landing.navFeatures, id: 'section-features' },
+    { label: t.landing.navPricing,  id: 'section-pricing' },
+    { label: t.landing.navAbout,    id: 'section-about' },
+  ];
+
+  const stats = [
+    { num: '500+',    label: t.landing.statsCoins },
+    { num: '14',      label: t.landing.statsSteps },
+    { num: t.landing.statsRealtime, label: t.landing.statsRealtime === 'Real-time Data' ? 'Data' : '行情数据' },
+    { num: 'AI',      label: t.landing.statsAI },
+  ];
+
+  // 统计区固定展示
+  const statsFixed = [
+    { num: '500+',   label: t.landing.statsCoins },
+    { num: '14',     label: t.landing.statsSteps },
+    { num: t.landing.statsRealtime, label: '' },
+    { num: 'AI',     label: t.landing.statsAI },
+  ];
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg1)', color: 'var(--t1)' }}>
@@ -49,15 +72,11 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
         boxShadow: '0 1px 0 rgba(0,0,0,0.06)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 16, color: 'var(--t1)' }}>
-          <span style={{ fontSize: 22 }}>🦞</span> AI威科夫Pro
+          <span style={{ fontSize: 22 }}>🦞</span> {t.landing.brandName}
         </div>
         <div style={{ display: 'flex', gap: 24 }}>
-          {[
-            { label: '功能介绍', id: 'section-features' },
-            { label: '定价',     id: 'section-pricing' },
-            { label: '关于我们', id: 'section-about' },
-          ].map(({ label, id }) => (
-            <a key={label} href={`#${id}`}
+          {navLinks.map(({ label, id }) => (
+            <a key={id} href={`#${id}`}
               onClick={e => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }}
               style={{ fontSize: 14, color: 'var(--t2)', textDecoration: 'none', cursor: 'pointer' }}>{label}</a>
           ))}
@@ -66,12 +85,12 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
           <button onClick={() => openLogin()} style={{
             padding: '7px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer',
             background: 'transparent', color: 'var(--t2)', border: '1px solid var(--border)',
-          }}>登录</button>
+          }}>{t.landing.navLogin}</button>
           <button onClick={() => openLogin()} style={{
             padding: '7px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer',
             background: 'var(--primary)', color: '#fff', fontWeight: 600, border: 'none',
             boxShadow: '0 2px 8px rgba(0,122,255,0.25)',
-          }}>免费注册</button>
+          }}>{t.landing.navRegister}</button>
         </div>
       </nav>
 
@@ -86,7 +105,7 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
           display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px',
           borderRadius: 20, background: 'rgba(0,122,255,0.08)', border: '1px solid rgba(0,122,255,0.18)',
           color: 'var(--primary)', fontSize: 12, marginBottom: 24, fontWeight: 500,
-        }}>🚀 专业机构级量化分析工具</div>
+        }}>🚀 {t.landing.heroBadge}</div>
 
         <h1 style={{ fontSize: 'clamp(32px,6vw,64px)', fontWeight: 800, lineHeight: 1.1, marginBottom: 20, letterSpacing: -1, color: 'var(--t1)' }}>
           {content.hero.title.split('威科夫').length > 1 ? (
@@ -111,7 +130,7 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
             padding: '14px 32px', borderRadius: 12, background: 'var(--bg2)',
             color: 'var(--t1)', fontSize: 15, border: '1px solid var(--border)', cursor: 'pointer',
             boxShadow: 'var(--shadow-card)',
-          }}>了解更多 →</button>
+          }}>{t.landing.heroLearnMore}</button>
         </div>
         <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 14 }}>{content.hero.ctaSubText}</div>
 
@@ -129,7 +148,7 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
           </div>
           <div style={{ display: 'flex', height: 300 }}>
             <div style={{ width: 140, borderRight: '1px solid var(--border)', padding: 10, fontSize: 11 }}>
-              <div style={{ color: 'var(--t3)', marginBottom: 8 }}>自选列表</div>
+              <div style={{ color: 'var(--t3)', marginBottom: 8 }}>{t.landing.previewWatchlist}</div>
               {['BTC/USDT','ETH/USDT','SOL/USDT','BNB/USDT'].map((s, i) => (
                 <div key={s} style={{
                   color: i === 0 ? '#f0b429' : 'var(--t2)', fontWeight: i === 0 ? 700 : 400,
@@ -139,21 +158,21 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
               ))}
             </div>
             <div style={{ flex: 1, padding: 12 }}>
-              <div style={{ color: 'var(--t3)', fontSize: 11, marginBottom: 8 }}>BTC/USDT · 1H · K线图</div>
+              <div style={{ color: 'var(--t3)', fontSize: 11, marginBottom: 8 }}>{t.landing.previewChart}</div>
               <MockKlineChart />
             </div>
             <div style={{ width: 200, borderLeft: '1px solid var(--border)', padding: 12, fontSize: 11, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ color: 'var(--t3)', marginBottom: 8 }}>AI策略报告</div>
-              <div style={{ background: 'rgba(0,200,150,0.1)', border: '1px solid rgba(0,200,150,0.2)', borderRadius: 6, padding: '6px 10px', color: 'var(--green)', fontWeight: 700, marginBottom: 8 }}>▲ 做多信号 82分</div>
-              <div style={{ color: 'var(--t2)', lineHeight: 1.5 }}>入场：$94,200<br />止损：$91,800<br />目标：$99,500<br />盈亏比：2.3:1</div>
+              <div style={{ color: 'var(--t3)', marginBottom: 8 }}>{t.landing.previewReport}</div>
+              <div style={{ background: 'rgba(0,200,150,0.1)', border: '1px solid rgba(0,200,150,0.2)', borderRadius: 6, padding: '6px 10px', color: 'var(--green)', fontWeight: 700, marginBottom: 8 }}>{t.landing.previewSignal}</div>
+              <div style={{ color: 'var(--t2)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>{t.landing.previewDetails}</div>
               {/* 锁定遮罩 */}
               <div onClick={() => openLogin()} style={{
                 position: 'absolute', inset: 0, background: 'rgba(6,13,24,0.82)', backdropFilter: 'blur(3px)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer',
               }}>
                 <div style={{ fontSize: 22 }}>🔒</div>
-                <div style={{ fontSize: 12, color: 'var(--t2)', textAlign: 'center', lineHeight: 1.5 }}>登录后查看<br />完整分析报告</div>
-                <button style={{ background: '#f0b429', color: '#000', fontSize: 11, fontWeight: 700, border: 'none', borderRadius: 6, padding: '5px 14px', cursor: 'pointer' }}>免费注册</button>
+                <div style={{ fontSize: 12, color: 'var(--t2)', textAlign: 'center', lineHeight: 1.5 }}>{t.landing.previewLockTitle}<br />{t.landing.previewLockSub}</div>
+                <button style={{ background: '#f0b429', color: '#000', fontSize: 11, fontWeight: 700, border: 'none', borderRadius: 6, padding: '5px 14px', cursor: 'pointer' }}>{t.landing.previewLockBtn}</button>
               </div>
             </div>
           </div>
@@ -167,31 +186,24 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
         background: 'var(--bg2)',
       }}>
         {[
-          { num: '500+', label: '支持币种' },
-          { num: '14步', label: '分析流程' },
-          { num: '实时', label: '行情数据' },
-          { num: 'AI驱动', label: '个性化策略' },
-        ].map(s => (
-          <div key={s.label} style={{ textAlign: 'center' }}>
+          { num: '500+', label: t.landing.statsCoins },
+          { num: '14',   label: t.landing.statsSteps },
+          { num: t.landing.statsRealtime, label: '' },
+          { num: 'AI',   label: t.landing.statsAI },
+        ].map((s, i) => (
+          <div key={i} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 32, fontWeight: 800, color: '#f0b429' }}>{s.num}</div>
-            <div style={{ fontSize: 13, color: 'var(--t2)', marginTop: 4 }}>{s.label}</div>
+            {s.label && <div style={{ fontSize: 13, color: 'var(--t2)', marginTop: 4 }}>{s.label}</div>}
           </div>
         ))}
       </div>
 
       {/* 功能介绍 */}
       <div id="section-features" style={{ padding: '80px 20px', maxWidth: 1100, margin: '0 auto' }}>
-        <h2 style={{ textAlign: 'center', fontSize: 32, fontWeight: 700, marginBottom: 12 }}>为专业交易者打造</h2>
-        <p style={{ textAlign: 'center', color: 'var(--t2)', marginBottom: 48 }}>整合威科夫理论、量化指标与 AI 分析，让每一次决策都有据可依</p>
+        <h2 style={{ textAlign: 'center', fontSize: 32, fontWeight: 700, marginBottom: 12 }}>{t.landing.featuresTitle}</h2>
+        <p style={{ textAlign: 'center', color: 'var(--t2)', marginBottom: 48 }}>{t.landing.featuresSubtitle}</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-          {[
-            { icon: '📊', title: '威科夫阶段识别', desc: '自动识别积累、上涨、派发、下跌四大阶段，结合量价关系给出置信度评分' },
-            { icon: '🤖', title: 'AI个性化策略', desc: '基于实时数据向 AI 提问，获得专属的入场位、止损、目标价与仓位建议' },
-            { icon: '📈', title: '多周期共振分析', desc: '同时分析日线/4H/1H/15m四个周期，找出多周期共振的最优入场时机' },
-            { icon: '🛡️', title: '动态风控计划', desc: '基于 ATR 和斐波那契自动计算止损止盈，确保每笔交易盈亏比 ≥ 1.5:1' },
-            { icon: '📰', title: '实时舆情监控', desc: '整合14个中英文加密新闻源，自动分类情绪分析，辅助判断市场情绪' },
-            { icon: '🔥', title: '订单簿热力图', desc: '实时监控大单买卖墙，识别关键支撑压制位，预判机构资金方向' },
-          ].map(f => (
+          {t.landing.featuresList.map(f => (
             <div key={f.title} style={{
               background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 28,
               transition: 'all .2s',
@@ -210,8 +222,8 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
 
       {/* 定价 */}
       <div id="section-pricing" style={{ padding: '80px 20px', background: 'var(--bg2)' }}>
-        <h2 style={{ textAlign: 'center', fontSize: 32, fontWeight: 700, marginBottom: 12 }}>简单透明的定价</h2>
-        <p style={{ textAlign: 'center', color: 'var(--t2)', marginBottom: 48 }}>灵活订阅，无隐藏费用</p>
+        <h2 style={{ textAlign: 'center', fontSize: 32, fontWeight: 700, marginBottom: 12 }}>{t.landing.pricingTitle}</h2>
+        <p style={{ textAlign: 'center', color: 'var(--t2)', marginBottom: 48 }}>{t.landing.pricingSubtitle}</p>
         <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap', maxWidth: 960, margin: '0 auto' }}>
           {displayPlans.slice(0, 4).map(plan => (
             <div key={plan.id} style={{
@@ -223,16 +235,16 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
                   position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
                   background: '#f0b429', color: '#000', fontSize: 11, fontWeight: 700,
                   padding: '3px 14px', borderRadius: 20,
-                }}>最受欢迎</div>
+                }}>{t.landing.pricingPopular}</div>
               )}
               <div style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 8 }}>{plan.name}</div>
               <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--t1)' }}>
                 ${plan.priceUsd}<span style={{ fontSize: 16, fontWeight: 400, color: 'var(--t2)' }}>
-                  {' '}USDT / {plan.durationDays >= 90 ? '季' : plan.durationDays >= 365 ? '年' : '月'}
+                  {' '}USDT / {plan.durationDays >= 365 ? t.landing.pricingPerYear : plan.durationDays >= 90 ? t.landing.pricingPerQuarter : t.landing.pricingPerMonth}
                 </span>
               </div>
               <div style={{ fontSize: 13, color: '#f0b429', margin: '8px 0 20px' }}>
-                每日 {plan.dailyLimit} 次 AI查询
+                {t.landing.pricingAIQueries(plan.dailyLimit)}
               </div>
               <ul style={{ listStyle: 'none', marginBottom: 24, padding: 0 }}>
                 {(plan.perks ?? []).map(p => (
@@ -243,7 +255,7 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
                 width: '100%', padding: 12, borderRadius: 10,
                 background: 'linear-gradient(135deg, #f0b429, #e8920a)',
                 color: '#000', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer',
-              }}>立即订阅</button>
+              }}>{t.landing.pricingCta}</button>
             </div>
           ))}
         </div>
@@ -251,7 +263,7 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
 
       {/* Footer */}
       <div id="section-about" style={{ textAlign: 'center', padding: '40px 20px', borderTop: '1px solid var(--border)', color: 'var(--t3)', fontSize: 13 }}>
-        © 2026 AI威科夫Pro · 仅供技术学习参考，不构成投资建议
+        {t.landing.footerCopy}
       </div>
     </div>
   );

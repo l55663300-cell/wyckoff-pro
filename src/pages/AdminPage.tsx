@@ -1618,13 +1618,18 @@ export default function AdminPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <span style={{ fontSize: 12, color: 'var(--t2)' }}>开放注册</span>
-                <ToggleSwitch defaultOn={sysCfg.registrationOpen} />
+                <ToggleSwitch defaultOn={sysCfg.registrationOpen} onChange={v => setSysCfg(p => ({ ...p, registrationOpen: v }))} />
                 <span style={{ fontSize: 11, color: 'var(--t3)' }}>关闭后新用户无法注册</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <span style={{ fontSize: 12, color: 'var(--t2)' }}>维护模式</span>
-                <ToggleSwitch defaultOn={sysCfg.maintenanceMode} />
+                <ToggleSwitch defaultOn={sysCfg.maintenanceMode} onChange={v => setSysCfg(p => ({ ...p, maintenanceMode: v }))} />
                 <span style={{ fontSize: 11, color: 'var(--t3)' }}>开启后前台显示维护页面</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <span style={{ fontSize: 12, color: 'var(--t2)' }}>自动支付（NowPayments）</span>
+                <ToggleSwitch defaultOn={sysCfg.autoPayEnabled ?? false} onChange={v => setSysCfg(p => ({ ...p, autoPayEnabled: v }))} />
+                <span style={{ fontSize: 11, color: 'var(--t3)' }}>开启后充值页显示 USDT 自动支付入口，KYC 通过后再开启</span>
               </div>
               <SaveBtn onClick={handleSaveSys} />
             </AdminCard>
@@ -1900,11 +1905,11 @@ const inputStyle: React.CSSProperties = {
   transition: 'border-color .15s, box-shadow .15s',
 };
 
-function ToggleSwitch({ defaultOn = false }: { defaultOn?: boolean }) {
+function ToggleSwitch({ defaultOn = false, onChange }: { defaultOn?: boolean; onChange?: (v: boolean) => void }) {
   const [on, setOn] = React.useState(defaultOn);
   return (
     <button
-      onClick={() => setOn(v => !v)}
+      onClick={() => { setOn(v => { const next = !v; onChange?.(next); return next; }); }}
       style={{
         width: 42, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
         background: on ? 'var(--primary)' : 'var(--border)',

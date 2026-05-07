@@ -9,6 +9,7 @@ import {
   PASSWORD_RE,
   type ApiError,
 } from '../api/auth';
+import { useT } from '../i18n';
 
 type AuthView = 'login' | 'register' | 'forgot';
 
@@ -41,9 +42,10 @@ interface LoginModalProps {
 // ─── 密码强度条 ────────────────────────────────────────────────────────────────
 function PasswordStrengthBar({ password }: { password: string }) {
   if (!password) return null;
+  const t = useT();
   const { score, tips } = checkPasswordStrength(password);
   const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e'];
-  const labels = ['太弱', '弱', '中等', '强'];
+  const labels = [t.auth.pwStrengthTooWeak, t.auth.pwStrengthWeak, t.auth.pwStrengthMedium, t.auth.pwStrengthStrong];
   return (
     <div style={{ marginTop: 6 }}>
       <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
@@ -57,10 +59,10 @@ function PasswordStrengthBar({ password }: { password: string }) {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 11, color: score > 0 ? colors[score - 1] : 'var(--t3)' }}>
-          {score > 0 ? labels[score - 1] : '请输入密码'}
+          {score > 0 ? labels[score - 1] : t.auth.pwStrengthEnter}
         </span>
         {tips.length > 0 && (
-          <span style={{ fontSize: 11, color: 'var(--t3)' }}>还需：{tips.join('、')}</span>
+          <span style={{ fontSize: 11, color: 'var(--t3)' }}>{t.auth.pwStrengthMore}{tips.join('、')}</span>
         )}
       </div>
     </div>
@@ -121,6 +123,7 @@ function Field({
 export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
   const { login } = useApp();
   const { showToast } = useToast();
+  const tr = useT();
   const [view, setView] = useState<AuthView>(defaultTab);
 
   // 公用字段
@@ -147,7 +150,7 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
     const op = ops[Math.floor(Math.random() * 3)];
     let a = Math.floor(Math.random() * 9) + 1;
     let b = Math.floor(Math.random() * 9) + 1;
-    if (op === '-' && b > a) [a, b] = [b, a]; // 确保结果非负
+    if (op === '-' && b > a) [a, b] = [b, a];
     const answer = op === '+' ? a + b : op === '-' ? a - b : a * b;
     return { question: `${a} ${op} ${b} = ?`, answer };
   };
@@ -170,8 +173,8 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
   // 验证码倒计时
   useEffect(() => {
     if (codeCountdown <= 0) return;
-    const t = setTimeout(() => setCodeCountdown(c => c - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setCodeCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
   }, [codeCountdown]);
 
   // ESC 关闭
@@ -184,22 +187,21 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
   // 邮箱格式校验（失焦时）
   const validateEmail = useCallback(() => {
     const v = email.trim();
-    if (!v) { setEmailError('请填写邮箱地址'); return false; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { setEmailError('邮箱格式不正确'); return false; }
+    if (!v) { setEmailError(tr.auth.emailEmpty); return false; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { setEmailError(tr.auth.emailInvalid); return false; }
     setEmailError('');
     return true;
-  }, [email]);
+  }, [email, tr]);
 
   // ── 登录 ──
   const handleLogin = async () => {
     setError('');
     if (!validateEmail()) return;
-    if (!pw) { setError('请输入密码'); return; }
+    if (!pw) { setError(tr.auth.passwordEmpty); return; }
     setLoading(true);
     try {
       const u = await apiLogin(email.trim(), pw);
       login(u);
-      // login() 内部会跳转 page，onClose 负责关闭 Modal
       onClose();
       showToast(`欢迎回来，${u.name}`, 'success');
     } catch (e) {
@@ -214,10 +216,9 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
     setError('');
     setMathError('');
     if (!validateEmail()) return;
-    // 数学验证码校验
     const ans = parseInt(mathInput.trim(), 10);
     if (isNaN(ans) || ans !== mathChallenge.answer) {
-      setMathError('答案不正确，请重新计算');
+      setMathError(tr.auth.mathWrong);
       setMathChallenge(genMathChallenge());
       setMathInput('');
       return;
@@ -237,7 +238,7 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
   // ── 校验验证码 ──
   const handleVerifyCode = async () => {
     setError('');
-    if (!verifyCodeVal.trim()) { setError('请输入验证码'); return; }
+    if (!verifyCodeVal.trim()) { setError(tr.auth.codeEmpty); return; }
     setLoading(true);
     try {
       await verifyCode(email.trim().toLowerCase(), verifyCodeVal.trim());
@@ -254,11 +255,11 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
     setError('');
     if (!validateEmail()) return;
     if (!PASSWORD_RE.test(pw)) {
-      setError('密码需8位以上且包含字母、数字、特殊字符');
+      setError(tr.auth.passwordWeak);
       return;
     }
-    if (pw !== pw2) { setError('两次密码不一致'); return; }
-    if (!agreed) { setError('请先同意服务条款和隐私政策'); return; }
+    if (pw !== pw2) { setError(tr.auth.confirmPasswordError); return; }
+    if (!agreed) { setError(tr.auth.agreementRequired); return; }
 
     setLoading(true);
     try {
@@ -299,10 +300,12 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
   };
 
   const tabLabels: Record<AuthView, string> = {
-    login: '登录',
-    register: '注册账号',
-    forgot: '找回密码',
+    login: tr.auth.tabLogin,
+    register: tr.auth.tabRegister,
+    forgot: tr.auth.tabForgot,
   };
+
+  const stepLabels = [tr.auth.step1, tr.auth.step2, tr.auth.step3];
 
   return (
     <div
@@ -335,20 +338,20 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
           <span style={{ fontSize: 26 }}>🦞</span>
-          <span style={{ fontWeight: 700, fontSize: 17 }}>AI威科夫Pro</span>
+          <span style={{ fontWeight: 700, fontSize: 17 }}>{tr.landing.brandName}</span>
         </div>
 
         {/* Tab 切换（login / register，forgot 不在 Tab 里） */}
         {view !== 'forgot' && (
           <div style={{ display: 'flex', background: 'var(--bg3)', borderRadius: 12, padding: 4, marginBottom: 24 }}>
-            {(['login', 'register'] as const).map(t => (
-              <button key={t} onClick={() => switchView(t)} style={{
+            {(['login', 'register'] as const).map(tab => (
+              <button key={tab} onClick={() => switchView(tab)} style={{
                 flex: 1, padding: 9, borderRadius: 9, border: 'none', fontSize: 14, fontWeight: 600,
                 cursor: 'pointer', transition: 'all .15s',
-                background: view === t ? 'var(--bg2)' : 'none',
-                color: view === t ? 'var(--t1)' : 'var(--t3)',
-                boxShadow: view === t ? '0 1px 4px rgba(0,0,0,.3)' : 'none',
-              }}>{tabLabels[t]}</button>
+                background: view === tab ? 'var(--bg2)' : 'none',
+                color: view === tab ? 'var(--t1)' : 'var(--t3)',
+                boxShadow: view === tab ? '0 1px 4px rgba(0,0,0,.3)' : 'none',
+              }}>{tabLabels[tab]}</button>
             ))}
           </div>
         )}
@@ -359,10 +362,10 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
             <button onClick={() => switchView('login')} style={{
               background: 'none', border: 'none', color: 'var(--t3)', cursor: 'pointer',
               fontSize: 13, padding: 0, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4,
-            }}>← 返回登录</button>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>找回密码</h3>
+            }}>{tr.auth.backToLogin}</button>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tr.auth.forgotTitle}</h3>
             <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--t2)' }}>
-              输入注册邮箱，我们将发送重置链接（30分钟内有效）
+              {tr.auth.forgotDesc}
             </p>
           </div>
         )}
@@ -382,10 +385,10 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
         {/* ── 登录表单 ── */}
         {view === 'login' && (
           <div>
-            <Field label="邮箱地址" type="email" placeholder="your@email.com"
+            <Field label={tr.auth.emailLabel} type="email" placeholder={tr.auth.emailPlaceholder}
               value={email} onChange={v => { setEmail(v); setEmailError(''); }}
               onBlur={validateEmail} error={emailError} disabled={loading} />
-            <Field label="密码" type="password" placeholder="••••••••"
+            <Field label={tr.auth.passwordLabel} type="password" placeholder={tr.auth.passwordPlaceholder}
               value={pw} onChange={setPw} disabled={loading}
               onEnter={handleLogin} />
 
@@ -393,22 +396,20 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
               <button onClick={() => switchView('forgot')} style={{
                 background: 'none', border: 'none', fontSize: 13,
                 color: 'var(--t2)', cursor: 'pointer', padding: 0,
-              }}>忘记密码？</button>
+              }}>{tr.auth.forgotPassword}</button>
             </div>
 
             <button onClick={handleLogin} disabled={loading} style={btnPrimary}>
-              {loading ? '登录中...' : '登录'}
+              {loading ? tr.auth.loggingIn : tr.auth.loginBtn}
             </button>
 
             <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: 'var(--t2)' }}>
-              还没有账号？
+              {tr.auth.noAccount}
               <button onClick={() => switchView('register')} style={{
                 background: 'none', border: 'none', color: '#f0b429',
                 cursor: 'pointer', fontSize: 13, padding: 0, fontWeight: 600,
-              }}>免费注册 →</button>
+              }}>{tr.auth.freeRegister}</button>
             </div>
-
-
           </div>
         )}
 
@@ -417,38 +418,42 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
           <div>
             {/* 步骤指示器 */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 22, gap: 0 }}>
-              {[{ n: 1, label: '填写邮箱' }, { n: 2, label: '验证邮箱' }, { n: 3, label: '设置密码' }].map((s, i, arr) => (
-                <React.Fragment key={s.n}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <div style={{
-                      width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 12, fontWeight: 700,
-                      background: (s.n === 1 && !codeSent) || (s.n === 2 && codeSent && !codeVerified) || (s.n === 3 && codeVerified)
-                        ? '#f0b429' : (s.n < (codeVerified ? 3 : codeSent ? 2 : 1)) ? 'var(--green)' : 'var(--bg3)',
-                      color: (s.n === 1 && !codeSent) || (s.n === 2 && codeSent && !codeVerified) || (s.n === 3 && codeVerified)
-                        ? '#000' : 'var(--t3)',
-                    }}>{s.n < (codeVerified ? 3 : codeSent ? 2 : 1) ? '✓' : s.n}</div>
-                    <span style={{ fontSize: 10, color: 'var(--t3)', whiteSpace: 'nowrap' }}>{s.label}</span>
-                  </div>
-                  {i < arr.length - 1 && (
-                    <div style={{ flex: 1, height: 1, background: 'var(--border)', margin: '0 6px', marginBottom: 16 }} />
-                  )}
-                </React.Fragment>
-              ))}
+              {stepLabels.map((label, i) => {
+                const n = i + 1;
+                const arr = stepLabels;
+                return (
+                  <React.Fragment key={n}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                      <div style={{
+                        width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 12, fontWeight: 700,
+                        background: (n === 1 && !codeSent) || (n === 2 && codeSent && !codeVerified) || (n === 3 && codeVerified)
+                          ? '#f0b429' : (n < (codeVerified ? 3 : codeSent ? 2 : 1)) ? 'var(--green)' : 'var(--bg3)',
+                        color: (n === 1 && !codeSent) || (n === 2 && codeSent && !codeVerified) || (n === 3 && codeVerified)
+                          ? '#000' : 'var(--t3)',
+                      }}>{n < (codeVerified ? 3 : codeSent ? 2 : 1) ? '✓' : n}</div>
+                      <span style={{ fontSize: 10, color: 'var(--t3)', whiteSpace: 'nowrap' }}>{label}</span>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <div style={{ flex: 1, height: 1, background: 'var(--border)', margin: '0 6px', marginBottom: 16 }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
 
             {/* 步骤1：填写邮箱 + 发验证码 */}
             {!codeSent && (
               <>
-                <Field label="邮箱地址" type="email" placeholder="your@email.com"
+                <Field label={tr.auth.emailLabel} type="email" placeholder={tr.auth.emailPlaceholder}
                   value={email} onChange={v => { setEmail(v); setEmailError(''); }}
                   onBlur={validateEmail} error={emailError} disabled={sendingCode} />
 
                 {/* 数学验证码（防机器人） */}
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 13, color: 'var(--t2)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                    安全验证
-                    <span style={{ fontSize: 11, color: 'var(--t3)' }}>（防机器人）</span>
+                    {tr.auth.securityLabel}
+                    <span style={{ fontSize: 11, color: 'var(--t3)' }}>{tr.auth.securityHint}</span>
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
@@ -460,7 +465,7 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
                     </div>
                     <input
                       type="number"
-                      placeholder="答案"
+                      placeholder={tr.auth.mathAnswerPlaceholder}
                       value={mathInput}
                       onChange={e => { setMathInput(e.target.value); setMathError(''); }}
                       onKeyDown={e => { if (e.key === 'Enter') handleSendCode(); }}
@@ -487,7 +492,7 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
                   background: sendingCode ? 'var(--bg3)' : 'linear-gradient(135deg,#f0b429,#e8920a)',
                   color: sendingCode ? 'var(--t3)' : '#000',
                 }}>
-                  {sendingCode ? '发送中...' : '发送验证码'}
+                  {sendingCode ? tr.auth.sendingCode : tr.auth.sendCodeBtn}
                 </button>
               </>
             )}
@@ -496,25 +501,25 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
             {codeSent && !codeVerified && (
               <>
                 <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(77,159,255,0.08)', borderRadius: 8, fontSize: 13, color: 'var(--t2)' }}>
-                  验证码已发送到 <strong style={{ color: 'var(--t1)' }}>{email.trim()}</strong>，请查收邮件（注意垃圾箱）
+                  {tr.auth.codeSentTo} <strong style={{ color: 'var(--t1)' }}>{email.trim()}</strong>{tr.auth.codeCheckSpam}
                 </div>
-                <Field label="邮箱验证码" type="text" placeholder="请输入6位验证码"
+                <Field label={tr.auth.codeLabel} type="text" placeholder={tr.auth.codePlaceholder}
                   value={verifyCodeVal} onChange={v => setVerifyCodeVal(v.replace(/\D/g, '').slice(0, 6))}
                   disabled={loading} onEnter={handleVerifyCode} />
                 <button onClick={handleVerifyCode} disabled={loading || verifyCodeVal.length < 6} style={{
                   ...btnPrimary,
                   opacity: loading || verifyCodeVal.length < 6 ? 0.6 : 1,
                 }}>
-                  {loading ? '验证中...' : '验证'}
+                  {loading ? tr.auth.verifyingBtn : tr.auth.verifyBtn}
                 </button>
                 <div style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: 'var(--t3)' }}>
-                  没收到？
+                  {tr.auth.noCode}
                   {codeCountdown > 0 ? (
-                    <span style={{ color: 'var(--t3)' }}> {codeCountdown}s 后可重发</span>
+                    <span style={{ color: 'var(--t3)' }}> {tr.auth.resendIn(codeCountdown)}</span>
                   ) : (
                     <button onClick={handleSendCode} disabled={sendingCode} style={{
                       background: 'none', border: 'none', color: '#f0b429', cursor: 'pointer', fontSize: 13, padding: 0,
-                    }}>{sendingCode ? '发送中...' : '重新发送'}</button>
+                    }}>{sendingCode ? tr.auth.sendingCode : tr.auth.resendBtn}</button>
                   )}
                 </div>
               </>
@@ -524,14 +529,14 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
             {codeVerified && (
               <>
                 <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(34,197,94,0.08)', borderRadius: 8, fontSize: 13, color: '#4ade80', display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span>✓</span> 邮箱 <strong>{email.trim()}</strong> 验证通过
+                  <span>✓</span> {tr.auth.emailVerified}: <strong>{email.trim()}</strong>
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 5, display: 'block' }}>设置密码</label>
+                  <label style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 5, display: 'block' }}>{tr.auth.setPasswordLabel}</label>
                   <input
                     type="password"
-                    placeholder="8位以上，含字母+数字+特殊字符"
+                    placeholder={tr.auth.setPasswordPlaceholder}
                     value={pw}
                     disabled={loading}
                     onChange={e => setPw(e.target.value)}
@@ -547,30 +552,30 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
                   <PasswordStrengthBar password={pw} />
                 </div>
 
-                <Field label="确认密码" type="password" placeholder="再次输入密码"
+                <Field label={tr.auth.confirmPasswordLabel} type="password" placeholder={tr.auth.confirmPasswordPlaceholder}
                   value={pw2} onChange={setPw2} disabled={loading}
-                  error={pw2 && pw !== pw2 ? '两次密码不一致' : ''}
+                  error={pw2 && pw !== pw2 ? tr.auth.confirmPasswordError : ''}
                   onEnter={handleRegister} />
 
-                <Field label="邀请码" hint="（选填，填写后双方均获得奖励）"
-                  placeholder="例如：WYCK-7F2K" value={inviteCode}
+                <Field label={tr.auth.inviteCodeLabel} hint={tr.auth.inviteCodeHint}
+                  placeholder={tr.auth.inviteCodePlaceholder} value={inviteCode}
                   onChange={v => setInviteCode(v.toUpperCase())}
-                  disabled={loading} badge="选填" />
+                  disabled={loading} badge={tr.auth.inviteCodeBadge} />
 
                 <div style={{ marginBottom: 18 }}>
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--t2)', lineHeight: 1.6 }}>
                     <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
                       disabled={loading}
                       style={{ marginTop: 2, accentColor: '#f0b429', flexShrink: 0 }} />
-                    我已阅读并同意&nbsp;
-                    <a style={{ color: '#f0b429', cursor: 'pointer', textDecoration: 'none' }}>服务条款</a>
-                    &nbsp;和&nbsp;
-                    <a style={{ color: '#f0b429', cursor: 'pointer', textDecoration: 'none' }}>隐私政策</a>
+                    {tr.auth.agreeText}&nbsp;
+                    <a style={{ color: '#f0b429', cursor: 'pointer', textDecoration: 'none' }}>{tr.auth.termsLink}</a>
+                    &nbsp;{tr.auth.agreeText.includes('and') ? 'and' : '和'}&nbsp;
+                    <a style={{ color: '#f0b429', cursor: 'pointer', textDecoration: 'none' }}>{tr.auth.privacyLink}</a>
                   </label>
                 </div>
 
                 <button onClick={handleRegister} disabled={loading} style={btnPrimary}>
-                  {loading ? '创建中...' : '创建账号'}
+                  {loading ? tr.auth.creatingBtn : tr.auth.createAccountBtn}
                 </button>
 
                 <div style={{
@@ -578,17 +583,17 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
                   background: 'rgba(240,180,41,0.06)', border: '1px solid rgba(240,180,41,0.2)',
                   borderRadius: 10, fontSize: 12, color: 'var(--t2)', lineHeight: 1.6,
                 }}>
-                  🎁 注册后系统自动赠送免费额度，邀请好友注册可获得额外奖励次数
+                  {tr.auth.registerGift}
                 </div>
               </>
             )}
 
             <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'var(--t2)' }}>
-              已有账号？
+              {tr.auth.hasAccount}
               <button onClick={() => switchView('login')} style={{
                 background: 'none', border: 'none', color: '#f0b429',
                 cursor: 'pointer', fontSize: 13, padding: 0, fontWeight: 600,
-              }}>← 返回登录</button>
+              }}>{tr.auth.backToLogin}</button>
             </div>
           </div>
         )}
@@ -598,36 +603,34 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
           <div>
             {!resetSent ? (
               <>
-                <Field label="注册邮箱" type="email" placeholder="your@email.com"
+                <Field label={tr.auth.forgotEmailLabel} type="email" placeholder={tr.auth.emailPlaceholder}
                   value={email} onChange={v => { setEmail(v); setEmailError(''); }}
                   onBlur={validateEmail} error={emailError} disabled={loading}
                   onEnter={handleResetRequest} />
 
                 <button onClick={handleResetRequest} disabled={loading} style={btnPrimary}>
-                  {loading ? '发送中...' : '发送重置邮件'}
+                  {loading ? tr.auth.sendingResetBtn : tr.auth.sendResetBtn}
                 </button>
               </>
             ) : (
-              <div style={{
-                textAlign: 'center', padding: '20px 0',
-              }}>
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>📬</div>
-                <p style={{ fontWeight: 700, fontSize: 15, margin: '0 0 8px' }}>重置邮件已发送</p>
+                <p style={{ fontWeight: 700, fontSize: 15, margin: '0 0 8px' }}>{tr.auth.resetSentTitle}</p>
                 <p style={{ fontSize: 13, color: 'var(--t2)', margin: '0 0 20px', lineHeight: 1.6 }}>
-                  重置链接已发送到<br />
+                  {tr.auth.resetSentDesc}<br />
                   <strong style={{ color: 'var(--t1)' }}>{email.trim()}</strong><br />
-                  请在 30 分钟内点击邮件中的链接完成重置
+                  {tr.auth.resetSentDesc2}
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--t3)', margin: '0 0 20px' }}>
-                  没收到邮件？请检查垃圾邮件文件夹，或
+                  {tr.auth.resetNoEmail}
                   <button onClick={() => { setResetSent(false); setError(''); }} style={{
                     background: 'none', border: 'none', color: '#f0b429', cursor: 'pointer',
                     fontSize: 12, padding: 0,
-                  }}>重新发送</button>
+                  }}>{tr.auth.resetResend}</button>
                 </p>
                 <button onClick={() => switchView('login')} style={{
                   ...btnPrimary, width: 'auto', padding: '10px 28px',
-                }}>返回登录</button>
+                }}>{tr.auth.backToLoginBtn}</button>
               </div>
             )}
           </div>

@@ -1052,9 +1052,9 @@ export default function AppPage() {
               {/* Tabs */}
               <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg2)' }}>
                 {([
-                  { key: 'ai', label: 'AI策略报告' },
-                  { key: 'wyckoff', label: '威科夫分析' },
-                  { key: 'news', label: '社交热度' },
+                  { key: 'ai', label: t.app.tabAI },
+                  { key: 'wyckoff', label: t.app.tabWyckoff },
+                  { key: 'news', label: t.app.tabTrending },
                 ] as { key: RightPanelTab; label: string }[]).map(t => (
                   <div key={t.key} onClick={() => setRightTab(t.key)} style={{
                     flex: 1, padding: 9, textAlign: 'center', fontSize: 12, fontWeight: 600,
@@ -1136,10 +1136,10 @@ export default function AppPage() {
       {isMobile && (
         <div className="mobile-tab-bar">
           {([
-            { key: 'chart', icon: '📊', label: '图表' },
-            { key: 'report', icon: '🤖', label: 'AI报告' },
-            { key: 'wyckoff', icon: '🦞', label: '威科夫' },
-            { key: 'news', icon: '🔥', label: '热度' },
+            { key: 'chart', icon: '📊', label: t.app.mobileTabChart },
+            { key: 'report', icon: '🤖', label: t.app.mobileTabReport },
+            { key: 'wyckoff', icon: '🦞', label: t.app.mobileTabWyckoff },
+            { key: 'news', icon: '🔥', label: t.app.mobileTabTrending },
           ] as { key: MobileTab; icon: string; label: string }[]).map(t => (
             <button
               key={t.key}
