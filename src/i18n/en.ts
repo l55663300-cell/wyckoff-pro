@@ -823,7 +823,7 @@ export const en = {
     onboardingStep3Desc: 'Click "🤖 AI Analyze" in the top right to get your full report',
     onboardingStartBtn: 'Get Started →',
     onboardingDismiss: 'Click anywhere to close · Won\'t show again',
-    quotaToday: (daily: number, total: number) => <>Today: <strong style={{ color: 'var(--primary)' }}>{daily}/{total}</strong> AI analyses left</>,
+    quotaToday: (daily: number, total: number) => `Today: ${daily}/${total} AI analyses left`,
     cachedDot: 'Cached',
     indicatorBBPos: 'BB Pos',
   },

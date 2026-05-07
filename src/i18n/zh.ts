@@ -830,7 +830,7 @@ export const zh = {
     onboardingStep3Desc: '点击右上角「🤖 AI分析」按钮，获取完整策略报告',
     onboardingStartBtn: '开始使用 →',
     onboardingDismiss: '点击任意处关闭 · 下次不再显示',
-    quotaToday: (daily: number, total: number) => <>今日剩余 <strong style={{ color: 'var(--primary)' }}>{daily}/{total} 次</strong> AI 分析配额</>,
+    quotaToday: (daily: number, total: number) => `今日剩余 ${daily}/${total} 次 AI 分析配额`,
     cachedDot: '已缓存',
     indicatorBBPos: 'BB位置',
   },
