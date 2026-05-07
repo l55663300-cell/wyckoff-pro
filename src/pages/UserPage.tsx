@@ -31,6 +31,13 @@ export default function UserPage() {
 
   const [sub, setSub] = useState<UserSubscription | null>(null);
   const [quota, setQuota] = useState<{ daily: number; total: number; expireAt: string | null; isActive: boolean }>({ daily: 0, total: 0, expireAt: null, isActive: false });
+  const [isMobileView, setIsMobileView] = useState(() => window.innerWidth < 768);
+
+  useEffect(() => {
+    const handler = () => setIsMobileView(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   // 修改密码弹窗
   const [showPwModal, setShowPwModal] = useState(false);
@@ -165,77 +172,84 @@ export default function UserPage() {
         </div>
       </nav>
 
-      <div style={{ padding: '40px 20px', maxWidth: 900, margin: '0 auto' }}>
-        <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>个人中心</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
+      <div style={{ padding: '24px 16px', maxWidth: 900, margin: '0 auto' }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>个人中心</h2>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobileView ? '1fr' : '1fr 2fr',
+          gap: 16,
+        }}>
 
-          {/* 左侧账户卡片 */}
+          {/* 左侧/顶部账户卡片 */}
           <div>
-            <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
-              {/* 头像 */}
-              <div style={{
-                width: 64, height: 64, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #f0b429, #e8920a)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 26, fontWeight: 700, color: '#000', marginBottom: 12,
-              }}>{avatar}</div>
-
-              <div style={{ fontSize: 14, color: 'var(--t2)', marginBottom: 4 }}>{user.email}</div>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                {editingName ? (
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: 1 }}>
-                    <input
-                      value={nameInput}
-                      onChange={e => { setNameInput(e.target.value); setNameError(''); }}
-                      maxLength={16}
-                      style={{ background: 'var(--bg3)', border: '1.5px solid var(--primary)', color: 'var(--t1)', fontSize: 14, fontWeight: 600, borderRadius: 5, padding: '2px 8px', outline: 'none', width: 130 }}
-                    />
-                    <button onClick={() => {
-                      if (nameInput.trim().length < 2) { setNameError('至少2个字符'); return; }
-                      setEditingName(false); showToast('昵称已更新 ✅');
-                    }} style={{ background: 'var(--primary)', border: 'none', color: '#000', borderRadius: 5, padding: '3px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>保存</button>
-                  </div>
-                ) : (
-                  <>
-                    <span style={{ fontSize: 18, fontWeight: 700 }}>{nameInput || user.name}</span>
-                    {quota.isActive && (
-                      <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'linear-gradient(90deg,#f0b429,#e8920a)', color: '#000', marginLeft: 8 }}>
-                        {sub?.planName ?? 'Pro'}会员
-                      </span>
+            <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: isMobileView ? '16px' : '24px' }}>
+              {/* 移动端：头像+名字横排 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+                <div style={{
+                  width: isMobileView ? 48 : 64, height: isMobileView ? 48 : 64, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #f0b429, #e8920a)', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: isMobileView ? 20 : 26, fontWeight: 700, color: '#000',
+                }}>{avatar}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginBottom: 2 }}>
+                    {editingName ? (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input
+                          value={nameInput}
+                          onChange={e => { setNameInput(e.target.value); setNameError(''); }}
+                          maxLength={16}
+                          style={{ background: 'var(--bg3)', border: '1.5px solid var(--primary)', color: 'var(--t1)', fontSize: 13, fontWeight: 600, borderRadius: 5, padding: '2px 8px', outline: 'none', width: 110 }}
+                        />
+                        <button onClick={() => {
+                          if (nameInput.trim().length < 2) { setNameError('至少2个字符'); return; }
+                          setEditingName(false); showToast('昵称已更新 ✅');
+                        }} style={{ background: 'var(--primary)', border: 'none', color: '#000', borderRadius: 5, padding: '3px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>保存</button>
+                      </div>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 16, fontWeight: 700 }}>{nameInput || user.name}</span>
+                        {quota.isActive && (
+                          <span style={{ display: 'inline-block', padding: '1px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'linear-gradient(90deg,#f0b429,#e8920a)', color: '#000' }}>
+                            {sub?.planName ?? 'Pro'}会员
+                          </span>
+                        )}
+                        <button onClick={() => setEditingName(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--t3)', padding: '0 2px' }}>✏️</button>
+                      </>
                     )}
-                    <button onClick={() => setEditingName(true)} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--t3)', padding: '0 4px' }}>✏️</button>
-                  </>
-                )}
+                  </div>
+                  {nameError && <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 4 }}>{nameError}</div>}
+                  <div style={{ fontSize: 12, color: 'var(--t2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
+                  <div style={{ fontSize: 11, color: 'var(--t3)' }}>UID #{user.uid}</div>
+                </div>
               </div>
-              {nameError && <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 6 }}>{nameError}</div>}
-              <div style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 14 }}>UID #{user.uid}</div>
 
               {/* 会员状态 */}
               {quota.isActive && sub ? (
-                <div style={{ background: 'var(--bg3)', borderRadius: 12, padding: 16, marginBottom: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>
-                    <span>{sub.planName}</span>
+                <div style={{ background: 'var(--bg3)', borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--t2)', marginBottom: 6 }}>
+                    <span style={{ fontWeight: 600 }}>{sub.planName}</span>
                     <span style={{ color: 'var(--primary)' }}>到期：{proExpireDate}</span>
                   </div>
-                  <div style={{ height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ width: `${progressPct}%`, height: '100%', background: 'linear-gradient(90deg, #f0b429, #e8920a)', borderRadius: 4 }} />
+                  <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
+                    <div style={{ width: `${progressPct}%`, height: '100%', background: 'linear-gradient(90deg, #f0b429, #e8920a)', borderRadius: 3 }} />
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 6 }}>
+                  <div style={{ fontSize: 11, color: 'var(--t3)' }}>
                     今日已用 {todayUsed}/{dailyLimit} 次
                   </div>
                 </div>
               ) : (
-                <div style={{ background: 'var(--bg3)', borderRadius: 12, padding: 16, marginBottom: 14, textAlign: 'center' }}>
-                  <div style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 8 }}>暂无有效订阅</div>
-                  <button onClick={() => navigate('recharge')} style={{ padding: '5px 14px', borderRadius: 8, background: '#f0b429', color: '#000', fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer' }}>立即订阅</button>
+                <div style={{ background: 'var(--bg3)', borderRadius: 12, padding: '12px 14px', marginBottom: 12, textAlign: 'center' }}>
+                  <div style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 6 }}>暂无有效订阅</div>
+                  <button onClick={() => navigate('recharge')} style={{ padding: '4px 14px', borderRadius: 8, background: '#f0b429', color: '#000', fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer' }}>立即订阅</button>
                 </div>
               )}
 
               {/* 快捷按钮 */}
               <div style={{ display: 'flex', gap: 8 }}>
-                {(['history', 'security'] as UserTab[]).map((t, i) => (
-                  <button key={t} onClick={() => setActiveTab(t)} style={{
-                    flex: 1, padding: '5px 12px', borderRadius: 6, fontSize: 12,
+                {(['history', 'security'] as UserTab[]).map((tab, i) => (
+                  <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                    flex: 1, padding: '5px 8px', borderRadius: 6, fontSize: 12,
                     border: '1px solid var(--border)', background: 'transparent', color: 'var(--t2)', cursor: 'pointer',
                   }}>{i === 0 ? '查询历史' : '账户安全'}</button>
                 ))}

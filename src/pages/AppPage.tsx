@@ -469,8 +469,11 @@ export default function AppPage() {
   }, []);
 
   // 手机端底部 tab
-  type MobileTab = 'chart' | 'report' | 'wyckoff' | 'news';
-  const [mobileTab, setMobileTab] = useState<MobileTab>('chart');
+  type MobileTab = 'report' | 'wyckoff' | 'indicators';
+  const [mobileTab, setMobileTab] = useState<MobileTab>('report');
+
+  const [mobileSearchVisible, setMobileSearchVisible] = useState(false);
+  const [mobileSearchInput, setMobileSearchInput] = useState('');
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -686,31 +689,90 @@ export default function AppPage() {
 
           {/* ── 手机端横向币种选择栏（替代左侧边栏） ── */}
           {isMobile && (
-            <div className="mobile-symbol-scroll" style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '6px 12px', borderBottom: '1px solid var(--border)',
-              background: 'var(--bg2)', flexShrink: 0,
-            }}>
-              {watchlist.map(sym => {
-                const meta = getSymbolMeta(sym);
-                const isActive = sym === symbol;
-                return (
-                  <button
-                    key={sym}
-                    onClick={() => handleSymbolChange(sym)}
-                    style={{
-                      flexShrink: 0, padding: '4px 10px', borderRadius: 20,
-                      background: isActive ? 'rgba(240,180,41,0.12)' : 'var(--bg3)',
-                      border: `1px solid ${isActive ? 'var(--primary)' : 'var(--border)'}`,
-                      color: isActive ? 'var(--primary)' : 'var(--t2)',
-                      fontSize: 12, fontWeight: isActive ? 700 : 500,
-                      cursor: 'pointer', whiteSpace: 'nowrap',
+            <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              {/* 搜索栏（展开时显示） */}
+              {mobileSearchVisible && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderBottom: '1px solid var(--border)' }}>
+                  <input
+                    autoFocus
+                    value={mobileSearchInput}
+                    onChange={e => { setMobileSearchInput(e.target.value); setSymInputErr(''); }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const raw = mobileSearchInput.trim().toUpperCase();
+                        if (!raw) return;
+                        const full = raw.endsWith('USDT') ? raw : raw + 'USDT';
+                        if (!watchlist.includes(full)) {
+                          const next = [...watchlist, full];
+                          setWatchlist(next); saveWatchlist(next);
+                        }
+                        handleSymbolChange(full as Symbol);
+                        setMobileSearchInput(''); setMobileSearchVisible(false);
+                      }
+                      if (e.key === 'Escape') { setMobileSearchVisible(false); setMobileSearchInput(''); }
                     }}
-                  >
-                    {meta.icon} {meta.name}
-                  </button>
-                );
-              })}
+                    placeholder="输入币种代码，如 BTC 或 SOLUSDT..."
+                    style={{
+                      flex: 1, padding: '7px 10px', borderRadius: 8,
+                      background: 'var(--bg3)', border: '1px solid var(--primary)',
+                      color: 'var(--t1)', fontSize: 13, outline: 'none',
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      const raw = mobileSearchInput.trim().toUpperCase();
+                      if (!raw) { setMobileSearchVisible(false); return; }
+                      const full = raw.endsWith('USDT') ? raw : raw + 'USDT';
+                      if (!watchlist.includes(full)) {
+                        const next = [...watchlist, full];
+                        setWatchlist(next); saveWatchlist(next);
+                      }
+                      handleSymbolChange(full as Symbol);
+                      setMobileSearchInput(''); setMobileSearchVisible(false);
+                    }}
+                    style={{ padding: '7px 14px', borderRadius: 8, background: 'var(--primary)', color: '#000', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}
+                  >添加</button>
+                  <button
+                    onClick={() => { setMobileSearchVisible(false); setMobileSearchInput(''); }}
+                    style={{ padding: '7px 10px', borderRadius: 8, background: 'var(--bg3)', color: 'var(--t2)', fontSize: 13, border: '1px solid var(--border)', cursor: 'pointer' }}
+                  >取消</button>
+                </div>
+              )}
+              {/* 横向滚动币种栏 */}
+              <div className="mobile-symbol-scroll" style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '6px 12px', overflowX: 'auto',
+              }}>
+                {watchlist.map(sym => {
+                  const meta = getSymbolMeta(sym);
+                  const isActive = sym === symbol;
+                  return (
+                    <button
+                      key={sym}
+                      onClick={() => handleSymbolChange(sym)}
+                      style={{
+                        flexShrink: 0, padding: '4px 10px', borderRadius: 20,
+                        background: isActive ? 'rgba(240,180,41,0.12)' : 'var(--bg3)',
+                        border: `1px solid ${isActive ? 'var(--primary)' : 'var(--border)'}`,
+                        color: isActive ? 'var(--primary)' : 'var(--t2)',
+                        fontSize: 12, fontWeight: isActive ? 700 : 500,
+                        cursor: 'pointer', whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {meta.icon} {meta.name}
+                    </button>
+                  );
+                })}
+                {/* 搜索按钮 */}
+                <button
+                  onClick={() => setMobileSearchVisible(true)}
+                  style={{
+                    flexShrink: 0, padding: '4px 10px', borderRadius: 20,
+                    background: 'var(--bg3)', border: '1px dashed var(--border)',
+                    color: 'var(--t3)', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}
+                >+ 搜索</button>
+              </div>
             </div>
           )}
 
@@ -922,15 +984,15 @@ export default function AppPage() {
             </div>
           </div>
 
-          {/* ── 图表+右面板 ── */}
-          <div style={{ flex: 1, display: isMobile && mobileTab !== 'chart' ? 'none' : 'flex', overflow: 'hidden', minHeight: 0 }}>
+          {/* ── 图表+右面板（移动端隐藏图表区，只展示右侧面板内容） ── */}
+          <div style={{ flex: 1, display: isMobile ? 'none' : 'flex', overflow: 'hidden', minHeight: 0 }}>
 
-            {/* 图表区（手机端仅 chart tab 时展开） */}
+            {/* 图表区（手机端隐藏，桌面端展示） */}
             <div style={{
-              flex: 1, display: isMobile && mobileTab !== 'chart' ? 'none' : 'flex',
+              flex: 1, display: 'flex',
               flexDirection: 'column',
-              borderRight: isMobile ? 'none' : '1px solid var(--border)',
-              overflow: isMobile ? 'auto' : 'hidden', minWidth: 0,
+              borderRight: '1px solid var(--border)',
+              overflow: 'hidden', minWidth: 0,
             }}>
 
               {/* 策略提示条 */}
@@ -1099,8 +1161,8 @@ export default function AppPage() {
             )} {/* end !isMobile right panel */}
           </div>
 
-          {/* ── 手机端底部内容区（仅当 mobileTab !== 'chart' 时显示） ── */}
-          {isMobile && mobileTab !== 'chart' && (
+          {/* ── 手机端主内容区（始终显示，tab 切换） ── */}
+          {isMobile && (
             <div
               key={`mobile-${mobileTab}-${displayResult?.timestamp ?? 'empty'}`}
               className="animate-fade-in"
@@ -1122,9 +1184,28 @@ export default function AppPage() {
                   <div style={{ paddingBottom: 72 }}><EmptyPanelGuide onAnalyze={() => handleAnalyze()} /></div>
                 )
               )}
-              {mobileTab === 'news' && (
-                <div style={{ padding: 14, paddingBottom: 72 }}>
-                  <TrendingPanel />
+              {mobileTab === 'indicators' && (
+                <div style={{ padding: '12px 12px 72px' }}>
+                  {displayResult ? (
+                    <>
+                      {/* 简要价格信息 */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}>{displaySymbol}</span>
+                        {price > 0 && (
+                          <>
+                            <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--t1)', fontFamily: 'monospace' }}>${formatPrice(price, symbol)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: isPos ? 'var(--green)' : 'var(--red)' }}>
+                              {isPos ? '+' : ''}{formatPercent(Math.abs(priceChange))}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {/* 技术指标 */}
+                      <IndicatorPanel indicators={displayResult.primaryIndicators} symbol={symbol} />
+                    </>
+                  ) : (
+                    <EmptyPanelGuide onAnalyze={() => handleAnalyze()} />
+                  )}
                 </div>
               )}
             </div>
@@ -1136,18 +1217,17 @@ export default function AppPage() {
       {isMobile && (
         <div className="mobile-tab-bar">
           {([
-            { key: 'chart', icon: '📊', label: t.app.mobileTabChart },
             { key: 'report', icon: '🤖', label: t.app.mobileTabReport },
             { key: 'wyckoff', icon: '🦞', label: t.app.mobileTabWyckoff },
-            { key: 'news', icon: '🔥', label: t.app.mobileTabTrending },
-          ] as { key: MobileTab; icon: string; label: string }[]).map(t => (
+            { key: 'indicators', icon: '📊', label: t.app.mobileTabIndicators },
+          ] as { key: MobileTab; icon: string; label: string }[]).map(tab => (
             <button
-              key={t.key}
-              className={`mobile-tab-item${mobileTab === t.key ? ' active' : ''}`}
-              onClick={() => setMobileTab(t.key)}
+              key={tab.key}
+              className={`mobile-tab-item${mobileTab === tab.key ? ' active' : ''}`}
+              onClick={() => setMobileTab(tab.key)}
             >
-              <span style={{ fontSize: 18 }}>{t.icon}</span>
-              <span>{t.label}</span>
+              <span style={{ fontSize: 18 }}>{tab.icon}</span>
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
@@ -1325,18 +1405,19 @@ function EmptyPanelGuide({ onAnalyze }: { onAnalyze: () => void }) {
 
 // 威科夫分析面板
 function WyckoffPane({ result }: { result: any }) {
+  const t = useT();
   const phaseMap: Record<string, { label: string; color: string; bg: string; desc: string }> = {
-    accumulation: { label: '积累阶段', color: '#059669', bg: 'rgba(5,150,105,0.08)', desc: '机构低位吸筹，价格在区间内震荡，成交量逐步萎缩' },
-    markup:       { label: '上涨推动', color: '#2563eb', bg: 'rgba(37,99,235,0.08)', desc: '突破积累区，主力推升价格，成交量放大确认趋势' },
-    distribution: { label: '派发阶段', color: '#d97706', bg: 'rgba(217,119,6,0.08)',  desc: '机构高位出货，价格在高位区间震荡，量价出现背离' },
-    markdown:     { label: '下跌趋势', color: '#dc2626', bg: 'rgba(220,38,38,0.08)',  desc: '跌破派发区支撑，空头主导，逢反弹减仓' },
+    accumulation: { label: t.wyckoff.phaseAccumulation, color: '#059669', bg: 'rgba(5,150,105,0.08)', desc: t.wyckoff.phaseAccumulationDesc },
+    markup:       { label: t.wyckoff.phaseMarkup,       color: '#2563eb', bg: 'rgba(37,99,235,0.08)', desc: t.wyckoff.phaseMarkupDesc },
+    distribution: { label: t.wyckoff.phaseDistribution, color: '#d97706', bg: 'rgba(217,119,6,0.08)', desc: t.wyckoff.phaseDistributionDesc },
+    markdown:     { label: t.wyckoff.phaseMarkdown,     color: '#dc2626', bg: 'rgba(220,38,38,0.08)', desc: t.wyckoff.phaseMarkdownDesc },
   };
   const patternMap: Record<string, { label: string; color: string; desc: string }> = {
-    spring:   { label: '弹簧效应 Spring', color: '#059669', desc: '价格假跌破支撑后快速收复，是积累末期强烈反转信号' },
-    upthrust: { label: '假突破 UpThrust', color: '#dc2626', desc: '价格假突破阻力后快速回落，是派发末期强烈反转信号' },
-    sos:      { label: '力量迹象 SOS',    color: '#2563eb', desc: '放量突破关键阻力，多头力量占优，确认上涨阶段开始' },
-    sow:      { label: '弱势迹象 SOW',    color: '#d97706', desc: '量增价跌或成交量异常放大后回落，空头力量占优' },
-    none:     { label: '无明显形态',       color: '#94a3b8', desc: '当前价格结构尚未形成明确的威科夫形态信号，建议继续观察' },
+    spring:   { label: t.wyckoff.patternSpring,    color: '#059669', desc: t.wyckoff.patternSpringDesc },
+    upthrust: { label: t.wyckoff.patternUpthrust,  color: '#dc2626', desc: t.wyckoff.patternUpthrustDesc },
+    sos:      { label: t.wyckoff.patternSos,       color: '#2563eb', desc: t.wyckoff.patternSosDesc },
+    sow:      { label: t.wyckoff.patternSow,       color: '#d97706', desc: t.wyckoff.patternSowDesc },
+    none:     { label: t.wyckoff.patternNone,      color: '#94a3b8', desc: t.wyckoff.patternNoneDesc },
   };
 
   const phase   = result.wyckoff?.phase   ?? 'accumulation';
@@ -1348,10 +1429,10 @@ function WyckoffPane({ result }: { result: any }) {
 
   const ce = result.wyckoff?.causeAndEffect;
   const tfs: Array<{ key: string; label: string }> = [
-    { key: '1d', label: '日线' },
-    { key: '4h', label: '4小时' },
-    { key: '1h', label: '1小时' },
-    { key: '15m', label: '15分钟' },
+    { key: '1d', label: t.wyckoff.tfDay },
+    { key: '4h', label: t.wyckoff.tf4h },
+    { key: '1h', label: t.wyckoff.tf1h },
+    { key: '15m', label: t.wyckoff.tf15m },
   ];
 
   return (
@@ -1369,7 +1450,7 @@ function WyckoffPane({ result }: { result: any }) {
             fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
             background: `${phaseInfo.color}18`, color: phaseInfo.color,
             border: `1px solid ${phaseInfo.color}40`,
-          }}>置信度 {typeof phaseConf === 'number' ? phaseConf.toFixed(2) : phaseConf}%</span>
+          }}>{t.wyckoff.confidence} {typeof phaseConf === 'number' ? phaseConf.toFixed(2) : phaseConf}%</span>
         </div>
         <p style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.65, margin: 0 }}>{phaseInfo.desc}</p>
       </div>
@@ -1382,7 +1463,7 @@ function WyckoffPane({ result }: { result: any }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: patternInfo.color }}>{patternInfo.label}</span>
             {patternConf > 0 && (
-              <span style={{ fontSize: 11, color: 'var(--t3)' }}>置信度 {typeof patternConf === 'number' ? patternConf.toFixed(2) : patternConf}%</span>
+              <span style={{ fontSize: 11, color: 'var(--t3)' }}>{t.wyckoff.confidence} {typeof patternConf === 'number' ? patternConf.toFixed(2) : patternConf}%</span>
             )}
           </div>
           <p style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.65, margin: 0 }}>{patternInfo.desc}</p>
@@ -1395,7 +1476,7 @@ function WyckoffPane({ result }: { result: any }) {
           background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.2)',
           borderRadius: 10, padding: '11px 13px',
         }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', marginBottom: 5 }}>⚡ 复合人（主力）动向</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', marginBottom: 5 }}>{t.wyckoff.compositeMan}</div>
           <p style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.7, margin: 0 }}>
             {result.wyckoff.compositeManBehavior}
           </p>
@@ -1406,7 +1487,7 @@ function WyckoffPane({ result }: { result: any }) {
               background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.25)',
             }}>
               <span style={{ fontSize: 14 }}>⚠️</span>
-              <span style={{ fontSize: 11, color: '#d97706', fontWeight: 600 }}>量价背离 · 注意反转风险</span>
+              <span style={{ fontSize: 11, color: '#d97706', fontWeight: 600 }}>{t.wyckoff.divergenceWarn}</span>
             </div>
           )}
         </div>
@@ -1416,10 +1497,10 @@ function WyckoffPane({ result }: { result: any }) {
       {result.wyckoff?.volumeVerification && result.wyckoff.volumeVerification !== 'divergence' && (() => {
         const vv = result.wyckoff.volumeVerification;
         const vMap: Record<string, { icon: string; label: string; color: string }> = {
-          bullish:    { icon: '✅', label: '量价健康，多头主导', color: '#059669' },
-          bearish:    { icon: '⚠️', label: '放量下跌，空头强势', color: '#dc2626' },
-          divergence: { icon: '⚠️', label: '量价背离，注意风险', color: '#d97706' },
-          neutral:    { icon: '—',  label: '量价中性，方向待定', color: '#94a3b8' },
+          bullish:    { icon: '✅', label: t.wyckoff.volumeBullish,    color: '#059669' },
+          bearish:    { icon: '⚠️', label: t.wyckoff.volumeBearish,    color: '#dc2626' },
+          divergence: { icon: '⚠️', label: t.wyckoff.volumeDivergence, color: '#d97706' },
+          neutral:    { icon: '—',  label: t.wyckoff.volumeNeutral,    color: '#94a3b8' },
         };
         const v = vMap[vv] ?? vMap.neutral;
         return (
@@ -1431,7 +1512,7 @@ function WyckoffPane({ result }: { result: any }) {
             <span style={{ fontSize: 18 }}>{v.icon}</span>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: v.color }}>{v.label}</div>
-              <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>量价验证</div>
+              <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{t.wyckoff.volumeVerification}</div>
             </div>
           </div>
         );
@@ -1441,13 +1522,13 @@ function WyckoffPane({ result }: { result: any }) {
       {ce && (
         <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 13px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>📐 因果法则·积累区间幅度</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>{t.wyckoff.causeEffect}</span>
             <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: 'var(--t1)' }}>
               ±${ce.accumulationRange?.toFixed(0) ?? '-'}
             </span>
           </div>
           <p style={{ fontSize: 11, color: 'var(--t3)', margin: '4px 0 0', lineHeight: 1.5 }}>
-            目标价参见「AI策略报告」止盈区
+            {t.wyckoff.causeEffectSub}
           </p>
         </div>
       )}
@@ -1455,7 +1536,7 @@ function WyckoffPane({ result }: { result: any }) {
       {/* 多周期共振 */}
       {result.indicators && (
         <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 7 }}>🔄 多周期 RSI 共振</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 7 }}>{t.wyckoff.multiTfRSI}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {tfs.map(({ key, label }) => {
               const ind = result.indicators[key];
@@ -1463,7 +1544,7 @@ function WyckoffPane({ result }: { result: any }) {
               const bullish = ind.rsi > 50 && ind.macdState?.includes('看涨');
               const bearish = ind.rsi < 50 && ind.macdState?.includes('看跌');
               const color = bullish ? '#059669' : bearish ? '#dc2626' : '#d97706';
-              const signal = bullish ? '偏多' : bearish ? '偏空' : '中性';
+              const signal = bullish ? t.wyckoff.bullish : bearish ? t.wyckoff.bearish : t.wyckoff.neutral;
               return (
                 <div key={key} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1487,14 +1568,14 @@ function WyckoffPane({ result }: { result: any }) {
       {/* 5维综合评分 */}
       {result.scoring?.dims && (
         <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 7 }}>📊 五维综合评分</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 7 }}>{t.wyckoff.fiveDim}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {[
-              { key: 'wyckoff',   label: '威科夫形态确认', icon: '🔭', score: result.scoring.dims.wyckoff,   color: '#2563eb' },
-              { key: 'volume',    label: '成交量配合度',   icon: '📦', score: result.scoring.dims.volume,    color: '#059669' },
-              { key: 'momentum',  label: '多周期技术共振', icon: '⚡', score: result.scoring.dims.momentum,  color: '#7c3aed' },
-              { key: 'sentiment', label: '消息面情绪',     icon: '📰', score: result.scoring.dims.sentiment, color: '#d97706' },
-              { key: 'orderbook', label: '订单簿筹码压力', icon: '📋', score: result.scoring.dims.orderbook, color: '#0ea5e9' },
+              { key: 'wyckoff',   label: t.wyckoff.dimWyckoff,    icon: '🔭', score: result.scoring.dims.wyckoff,   color: '#2563eb' },
+              { key: 'volume',    label: t.wyckoff.dimVolume,     icon: '📦', score: result.scoring.dims.volume,    color: '#059669' },
+              { key: 'momentum',  label: t.wyckoff.dimMomentum,   icon: '⚡', score: result.scoring.dims.momentum,  color: '#7c3aed' },
+              { key: 'sentiment', label: t.wyckoff.dimSentiment,  icon: '📰', score: result.scoring.dims.sentiment, color: '#d97706' },
+              { key: 'orderbook', label: t.wyckoff.dimOrderbook,  icon: '📋', score: result.scoring.dims.orderbook, color: '#0ea5e9' },
             ].map((dim) => {
               const pct = Math.max(0, Math.min(100, dim.score));
               const dimColor = pct >= 65 ? dim.color : pct >= 40 ? '#d97706' : '#dc2626';

@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { loadContent } from '../utils/contentStore';
 import { getUnreadCountAsync } from '../utils/noticeStore';
 import { getActivePlans, type SubscriptionPlan } from '../utils/subscriptionStore';
-import { useT } from '../i18n';
+import { useT, toggleLang } from '../i18n';
 
 export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void }) {
   const { navigate } = useApp();
@@ -82,6 +82,10 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={toggleLang} style={{
+            padding: '7px 14px', borderRadius: 10, fontSize: 12, cursor: 'pointer',
+            background: 'transparent', color: 'var(--t2)', border: '1px solid var(--border)', fontWeight: 700,
+          }}>{t.nav.langToggle}</button>
           <button onClick={() => openLogin()} style={{
             padding: '7px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer',
             background: 'transparent', color: 'var(--t2)', border: '1px solid var(--border)',

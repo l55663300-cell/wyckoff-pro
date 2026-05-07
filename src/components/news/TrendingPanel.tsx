@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { fetchTrending, TrendingCoin, TrendingSentiment, TrendingResult } from '../../api/trendingApi';
+import { useT } from '../../i18n';
 
 const VERDICT_STYLE: Record<string, { color: string; bg: string; border: string; icon: string }> = {
   bullish: { color: '#059669', bg: '#ecfdf5', border: '#86efac', icon: '🔥' },
@@ -25,6 +26,7 @@ function formatPrice(p: number | null): string {
 }
 
 export const TrendingPanel: React.FC = () => {
+  const t = useT();
   const [coins, setCoins] = useState<TrendingCoin[]>([]);
   const [sentiment, setSentiment] = useState<TrendingSentiment>(EMPTY_SENTIMENT);
   const [fetching, setFetching] = useState(false);
@@ -82,11 +84,11 @@ export const TrendingPanel: React.FC = () => {
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px 0', flexShrink: 0 }}>
-        <div className="card-title" style={{ flex: 1, fontSize: 13 }}>🔥 社交热度 · 热搜榜</div>
+        <div className="card-title" style={{ flex: 1, fontSize: 13 }}>{t.trending.title}</div>
         <button
           onClick={handleRefresh}
           disabled={cooldown > 0 || fetching}
-          title={cooldown > 0 ? `${cooldown}s 后可刷新` : '刷新热搜数据'}
+          title={cooldown > 0 ? t.trending.cooldownHint(cooldown) : t.trending.refresh}
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '4px 8px', borderRadius: 6, fontSize: 11,
@@ -97,9 +99,9 @@ export const TrendingPanel: React.FC = () => {
           }}
         >
           <RefreshCw size={10} className={fetching ? 'spin-slow' : ''} />
-          {cooldown > 0 ? `${cooldown}s` : '刷新'}
+          {cooldown > 0 ? `${cooldown}s` : t.trending.refresh}
         </button>
-        <span style={{ fontSize: 10, color: 'var(--t4)' }}>10分钟自动刷新</span>
+        <span style={{ fontSize: 10, color: 'var(--t4)' }}>{t.trending.autoRefresh}</span>
       </div>
 
       {/* 情绪结论 */}
@@ -121,7 +123,7 @@ export const TrendingPanel: React.FC = () => {
             }}>
               {sentiment.avgChange >= 0 ? '+' : ''}{sentiment.avgChange.toFixed(1)}%
             </div>
-            <div style={{ fontSize: 9, color: 'var(--t4)', marginTop: 2 }}>平均涨跌</div>
+            <div style={{ fontSize: 9, color: 'var(--t4)', marginTop: 2 }}>{t.trending.avgChange}</div>
           </div>
         </div>
 
@@ -129,25 +131,25 @@ export const TrendingPanel: React.FC = () => {
         <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
           <div style={{ flex: 1, padding: '5px 8px', borderRadius: 8, background: '#ecfdf5', border: '1px solid #a7f3d0', textAlign: 'center' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#059669', fontFamily: 'monospace' }}>{sentiment.bullishCount}</div>
-            <div style={{ fontSize: 9, color: '#059669' }}>上涨</div>
+            <div style={{ fontSize: 9, color: '#059669' }}>{t.trending.up}</div>
           </div>
           <div style={{ flex: 1, padding: '5px 8px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fca5a5', textAlign: 'center' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', fontFamily: 'monospace' }}>{sentiment.bearishCount}</div>
-            <div style={{ fontSize: 9, color: '#dc2626' }}>下跌</div>
+            <div style={{ fontSize: 9, color: '#dc2626' }}>{t.trending.down}</div>
           </div>
           <div style={{ flex: 1, padding: '5px 8px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', textAlign: 'center' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--t2)', fontFamily: 'monospace' }}>
               {coins.filter(c => c.priceChangePercent24h === 0 || c.priceChangePercent24h == null).length}
             </div>
-            <div style={{ fontSize: 9, color: 'var(--t3)' }}>持平</div>
+            <div style={{ fontSize: 9, color: 'var(--t3)' }}>{t.trending.flat}</div>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '10px 2px 0' }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)' }}>24h 热搜榜 Top {coins.length}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)' }}>{t.trending.topN(coins.length)}</span>
           {updatedAt && (
             <span style={{ fontSize: 10, color: 'var(--t4)' }}>
-              更新于 {new Date(updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+              {t.trending.updatedAt} {new Date(updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
         </div>
@@ -162,12 +164,12 @@ export const TrendingPanel: React.FC = () => {
         ) : error && coins.length === 0 ? (
           <div style={{ padding: '24px', textAlign: 'center', color: 'var(--t3)', fontSize: 12 }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>😵</div>
-            获取失败：{error}
+            {t.trending.fetchFail}：{error}
             <br />
             <button
               onClick={handleRefresh}
               style={{ marginTop: 10, padding: '6px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--primary)', fontSize: 12, cursor: 'pointer' }}
-            >重试</button>
+            >{t.trending.retry}</button>
           </div>
         ) : (
           coins.map((coin) => {

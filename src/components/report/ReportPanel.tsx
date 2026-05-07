@@ -3,6 +3,7 @@ import { Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalysisResult } from '../../types';
 import { formatPrice } from '../../utils/formatters';
 import { formatV23Report } from '../../utils/reportFormatter';
+import { useT } from '../../i18n';
 
 interface ReportPanelProps {
   result: AnalysisResult;
@@ -29,6 +30,7 @@ const DIR_CONFIG: Record<string, { label: string; color: string; bg: string; bor
 };
 
 export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimeframe }) => {
+  const t = useT();
   const [copied, setCopied]   = useState(false);
   const [showRaw, setShowRaw] = useState(false);
 
@@ -72,7 +74,7 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
       }}>
         <span style={{ fontSize: 18 }}>🦞</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--t1)' }}>策略简报</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--t1)' }}>{t.report.title}</div>
           <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 1 }}>
             {new Date(result.timestamp).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
           </div>
@@ -86,7 +88,7 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
           }}
         >
           {copied ? <Check size={11} /> : <Copy size={11} />}
-          {copied ? '已复制' : '复制'}
+          {copied ? t.report.copied : t.report.copy}
         </button>
       </div>
 
@@ -107,16 +109,16 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
             gap: 10,
           }}>
             <div>
-              <div style={{ fontSize: 10, color: dirConf.color, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>交易方向</div>
+              <div style={{ fontSize: 10, color: dirConf.color, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>{t.report.tradeDirection}</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: dirConf.color, lineHeight: 1 }}>
-                {scoring.direction === 'long' ? '▲ 做多' : scoring.direction === 'short' ? '▼ 做空' : '◆ 观望'}
+                {scoring.direction === 'long' ? t.report.dirLong : scoring.direction === 'short' ? t.report.dirShort : t.report.dirNeutral}
               </div>
               <div style={{ fontSize: 11, color: dirConf.color, opacity: 0.7, marginTop: 4 }}>
                 {PHASE_CONFIG[wyckoff.phase]?.label ?? wyckoff.phase}
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 10, color: probColor, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>信心概率</div>
+              <div style={{ fontSize: 10, color: probColor, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>{t.report.confidence}</div>
               <div style={{
                 fontFamily: 'JetBrains Mono, monospace', fontWeight: 900,
                 fontSize: 36, color: probColor, lineHeight: 1,
@@ -128,7 +130,7 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
                 padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700,
                 background: probBg, color: probColor, border: `1px solid ${probBd}`,
               }}>
-                {scoring.probability >= 70 ? '强信号' : scoring.probability >= 55 ? '中信号' : '弱信号'}
+                {scoring.probability >= 70 ? t.report.signalStrong : scoring.probability >= 55 ? t.report.signalMedium : t.report.signalWeak}
               </div>
             </div>
           </div>
@@ -142,31 +144,31 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
               }}>
                 {[
                   {
-                    label: '入场区间',
+                    label: t.report.entry,
                     value: `$${formatPrice(risk.entryLow, symbol)} – $${formatPrice(risk.entryHigh, symbol)}`,
                     valueColor: '#2563eb',
                     sub: poc ? `POC @ $${formatPrice(poc.priceMid, symbol)}` : '',
                   },
                   {
-                    label: '动态止损 (ATR×2)',
+                    label: t.report.stopLoss,
                     value: `$${formatPrice(risk.stopLoss, symbol)}`,
                     valueColor: '#dc2626',
                     sub: '',
                   },
                   {
-                    label: '保守止盈 (1.272)',
+                    label: t.report.tp1,
                     value: `$${formatPrice(risk.target1, symbol)}`,
                     valueColor: '#059669',
                     sub: '50%仓位',
                   },
                   {
-                    label: '理想止盈 (1.618)',
+                    label: t.report.tp2,
                     value: `$${formatPrice(risk.target2, symbol)}`,
                     valueColor: '#2563eb',
                     sub: '30%仓位',
                   },
                   {
-                    label: '激进止盈',
+                    label: t.report.tp3,
                     value: `$${formatPrice(risk.target3, symbol)}`,
                     valueColor: '#7c3aed',
                     sub: '移动止损 · 20%仓',
@@ -199,10 +201,10 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
                 display: 'flex', flexDirection: 'column', gap: 6,
               }}>
                 {[
-                  { icon: '💰', label: '仓位', value: `${risk.positionSize}%`, color: '#059669' },
-                  { icon: '⚡', label: '杠杆', value: `${risk.leverage}x`, color: '#2563eb' },
-                  { icon: '📊', label: '盈亏比', value: risk.riskReward.toFixed(2), color: risk.rrWarning ? '#dc2626' : '#d97706', warn: risk.rrWarning },
-                  { icon: '⏱️', label: '时间止损', value: `${risk.timeStopHours}H`, color: '#7c3aed' },
+                  { icon: '💰', label: t.report.position, value: `${risk.positionSize}%`, color: '#059669' },
+                  { icon: '⚡', label: t.report.leverage, value: `${risk.leverage}x`, color: '#2563eb' },
+                  { icon: '📊', label: t.report.rr, value: risk.riskReward.toFixed(2), color: risk.rrWarning ? '#dc2626' : '#d97706', warn: risk.rrWarning },
+                  { icon: '⏱️', label: t.report.timeStop, value: `${risk.timeStopHours}H`, color: '#7c3aed' },
                 ].map((p) => (
                   <div key={p.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 12, color: 'var(--t3)' }}>{p.icon} {p.label}</span>
@@ -211,7 +213,7 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
                         <span style={{
                           fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10,
                           background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5',
-                        }}>⚠️ &lt;1.5 不建议入场</span>
+                        }}>{t.report.rrWarn}</span>
                       )}
                       <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 13, color: p.color }}>{p.value}</span>
                     </div>
@@ -240,20 +242,20 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--bg-subtle)', borderRadius: 10 }}>
                 <span style={{ fontSize: 24 }}>👀</span>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--t1)' }}>信号不明确，建议观望</div>
-                  <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>等待多周期信号共振后再入场</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--t1)' }}>{t.report.waitTitle}</div>
+                  <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{t.report.waitSub}</div>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <div style={{ padding: '10px 12px', borderRadius: 10, background: '#ecfdf5', border: '1px solid #a7f3d0' }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#059669', marginBottom: 4 }}>⬆️ 等待突破</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#059669', marginBottom: 4 }}>{t.report.waitBreakout}</div>
                   <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: '#059669' }}>${formatPrice(waitBreakout, symbol)}</div>
-                  <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>放量确认做多</div>
+                  <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>{t.report.waitBreakoutSub}</div>
                 </div>
                 <div style={{ padding: '10px 12px', borderRadius: 10, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', marginBottom: 4 }}>⬇️ 等待支撑</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', marginBottom: 4 }}>{t.report.waitSupport}</div>
                   <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: '#2563eb' }}>${formatPrice(waitSupport, symbol)}</div>
-                  <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>缩量企稳入多</div>
+                  <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>{t.report.waitSupportSub}</div>
                 </div>
               </div>
             </div>
@@ -265,7 +267,7 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
         {/* ── AI 大模型深度解读（有 LLM 时优先显示，无时显示本地 AI 摘要）── */}
         <section>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--t1)' }}>🤖 AI 深度解读</span>
+            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--t1)' }}>{t.report.aiDepth}</span>
             {result.aiReport ? (
               <span style={{
                 fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 600,
@@ -275,7 +277,7 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
               <span style={{
                 fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 600,
                 background: 'rgba(240,180,41,0.1)', color: 'var(--primary)', border: '1px solid rgba(240,180,41,0.25)',
-              }}>本地引擎</span>
+              }}>{t.report.localEngine}</span>
             )}
           </div>
 
@@ -298,7 +300,7 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
                   padding: '10px 12px', borderRadius: 10, marginBottom: 10,
                   background: 'rgba(154,230,180,0.06)', border: '1px solid rgba(154,230,180,0.2)',
                 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: '#68d391', marginBottom: 4 }}>威科夫阶段分析</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#68d391', marginBottom: 4 }}>{t.report.wyckoffStage}</div>
                   <p style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.65, margin: 0 }}>
                     {result.aiReport.wyckoffAnalysis}
                   </p>
@@ -309,10 +311,10 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
               {result.aiReport.keyStructure && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
                   {[
-                    { label: '支撑位', value: result.aiReport.keyStructure.support, color: '#68d391' },
-                    { label: '压力位', value: result.aiReport.keyStructure.resistance, color: '#f87171' },
-                    { label: '筹码密集区', value: result.aiReport.keyStructure.chipZone, color: '#63b3ed' },
-                    { label: '量能状态', value: result.aiReport.keyStructure.volumeState, color: '#f0b429' },
+                    { label: t.report.supportLevel, value: result.aiReport.keyStructure.support, color: '#68d391' },
+                    { label: t.report.resistanceLevel, value: result.aiReport.keyStructure.resistance, color: '#f87171' },
+                    { label: t.report.chipZone, value: result.aiReport.keyStructure.chipZone, color: '#63b3ed' },
+                    { label: t.report.volumeState, value: result.aiReport.keyStructure.volumeState, color: '#f0b429' },
                   ].map(item => (
                     <div key={item.label} style={{
                       padding: '8px 10px', borderRadius: 8,
@@ -331,7 +333,7 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
                   padding: '10px 12px', borderRadius: 10,
                   background: 'rgba(240,180,41,0.06)', border: '1px solid rgba(240,180,41,0.2)',
                 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--primary)', marginBottom: 4 }}>AI 综合结论</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--primary)', marginBottom: 4 }}>{t.report.aiConclusion}</div>
                   <p style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.65, margin: 0 }}>
                     {result.aiReport.wyckoffConclusion}
                   </p>
@@ -380,12 +382,12 @@ export const ReportPanel: React.FC<ReportPanelProps> = ({ result, activeTimefram
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--bd-light)' }}>
-          <span style={{ fontSize: 11, color: 'var(--t4)', fontStyle: 'italic' }}>数据驱动，逻辑为王 🦞</span>
+          <span style={{ fontSize: 11, color: 'var(--t4)', fontStyle: 'italic' }}>{t.report.tagline}</span>
           <button
             onClick={() => setShowRaw(!showRaw)}
             style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--t4)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
-            原始文本 {showRaw ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+            {t.report.rawText} {showRaw ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
           </button>
         </div>
         {showRaw && (

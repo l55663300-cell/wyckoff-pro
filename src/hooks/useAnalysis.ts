@@ -53,8 +53,18 @@ export function useAnalysis() {
    * 切换币种不清空，TTL 60分钟过期后才重新消耗积分
    */
   const cacheRef = useRef<Map<string, CacheEntry>>(new Map());
+  /** 当前请求的 AbortController，切换时取消上一个请求 */
+  const abortCtrlRef = useRef<AbortController | null>(null);
 
   const analyze = useCallback(async (symbol: Symbol, activeTimeframe: Timeframe = '1h') => {
+    // 取消上一次未完成的请求
+    if (abortCtrlRef.current) {
+      abortCtrlRef.current.abort();
+    }
+    const ctrl = new AbortController();
+    abortCtrlRef.current = ctrl;
+    const signal = ctrl.signal;
+
     setLoading(true);
     setError(null);
     const freshSteps = INITIAL_STEPS.map((s) => ({ ...s, done: false }));
@@ -189,6 +199,8 @@ export function useAnalysis() {
       setResult(finalResult);
       setLoading(false);
     } catch (err: any) {
+      // 被 abort 的请求不更新错误状态
+      if (err?.name === 'AbortError' || signal.aborted) return;
       setError(err?.message || '分析失败，请检查网络连接后重试');
       setLoading(false);
     }
