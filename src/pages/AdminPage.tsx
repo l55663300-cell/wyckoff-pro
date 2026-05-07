@@ -174,7 +174,7 @@ export default function AdminPage() {
 
   // 切换 tab 时刷新对应数据
   useEffect(() => {
-    if (activeTab === 'recharges') void Promise.resolve(loadOrders()).then(setRechargeOrders);
+    if (activeTab === 'recharges') void loadOrders().then(setRechargeOrders);
     if (activeTab === 'users') void loadUsers().then(setUserList);
     if (activeTab === 'queries') void loadAllQueriesFromDB().then(setQueryList);
     if (activeTab === 'feedback') void loadFeedbackFromDB().then(setFeedbackList);
@@ -190,7 +190,7 @@ export default function AdminPage() {
       setBannerEnabled(c.banner.enabled); setBannerText(c.banner.text); setBannerLink(c.banner.linkText);
     }
     if (activeTab === 'dashboard') {
-      void Promise.all([Promise.resolve(loadOrders()), loadUsers()]).then(([orders, users]) => {
+      void Promise.all([loadOrders(), loadUsers()]).then(([orders, users]) => {
         setRechargeOrders(orders);
         setUserList(users);
       });
@@ -597,33 +597,18 @@ export default function AdminPage() {
           const pending = rechargeOrders.filter(o => o.status === 'pending');
           const history = rechargeOrders.filter(o => o.status !== 'pending');
 
-          const handleApprove = (order: RechargeOrder) => {
-            const updated = approveOrder(order.id, 'Super Admin 审核通过');
+          const handleApprove = async (order: RechargeOrder) => {
+            const updated = await approveOrder(order.id, 'Super Admin 审核通过');
             if (!updated) return;
-            // 给用户加次数（更新 userStore）
+            // 给用户加次数（更新 Supabase profiles）
             updateUserCredits(order.uid, order.email, order.count);
-            // 同步更新 session localStorage，触发 storage 事件让在线用户实时感知
-            try {
-              const raw = localStorage.getItem('wyckoff_user_session');
-              if (raw) {
-                const u = JSON.parse(raw);
-                if (u.uid === order.uid || u.email === order.email) {
-                  u.credits = (u.credits ?? 0) + order.count;
-                  // 用 removeItem + setItem 强制触发 storage 事件（同页面也能感知）
-                  localStorage.removeItem('wyckoff_user_session');
-                  localStorage.setItem('wyckoff_user_session', JSON.stringify(u));
-                  // 同页面补发自定义事件
-                  window.dispatchEvent(new StorageEvent('storage', { key: 'wyckoff_user_session', newValue: JSON.stringify(u) }));
-                }
-              }
-            } catch {}
-            setRechargeOrders(loadOrders());
+            setRechargeOrders(await loadOrders());
             showToast(`✅ 已通过 — 已为 ${order.email} 发放 ${order.count} 次`);
           };
 
-          const handleReject = (order: RechargeOrder) => {
-            rejectOrder(order.id, 'Super Admin 拒绝');
-            setRechargeOrders(loadOrders());
+          const handleReject = async (order: RechargeOrder) => {
+            await rejectOrder(order.id, 'Super Admin 拒绝');
+            setRechargeOrders(await loadOrders());
             showToast(`❌ 已拒绝 — ${order.email} 的申请`);
           };
 

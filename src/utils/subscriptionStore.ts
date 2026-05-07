@@ -393,22 +393,12 @@ async function notifyAdminNewOrder(order: SubscriptionOrder) {
     void fetch(`https://sctapi.ftqq.com/${key}.send?title=${encodeURIComponent(title)}&desp=${encodeURIComponent(body)}`).catch(() => {});
   }
 
-  // 邮件通知（Resend）
+  // 邮件通知（走 /api/email/notify CF Worker 代理，Key 不出浏览器）
   if (cfg.adminNotifyEmail?.trim()) {
-    void fetch('https://api.resend.com/emails', {
+    void fetch('/api/email/notify', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Resend API Key 存在 Cloudflare Pages 环境变量 RESEND_API_KEY，
-        // 此处前端直接调用仅作临时方案；生产建议通过 Cloudflare Worker 代理
-        Authorization: `Bearer ${(typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_RESEND_API_KEY) ?? ''}`,
-      },
-      body: JSON.stringify({
-        from: 'noreply@wyckoff.pro',
-        to: cfg.adminNotifyEmail.trim(),
-        subject: title,
-        text: body,
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: cfg.adminNotifyEmail.trim(), subject: title, text: body }),
     }).catch(() => {});
   }
 }

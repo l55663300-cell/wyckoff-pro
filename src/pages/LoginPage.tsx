@@ -145,6 +145,30 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
   const [sendingCode, setSendingCode] = useState(false);
   const [codeCountdown, setCodeCountdown] = useState(0);
 
+  // ── 登录失败计数 + 临时锁定（防暴力破解） ──────────────────────────────────
+  const LOGIN_FAIL_KEY = 'wyckoff_login_fail';
+  const MAX_FAIL = 5;         // 最多连续失败次数
+  const LOCK_MS = 30 * 60 * 1000; // 锁定 30 分钟
+
+  interface FailRecord { count: number; lockedUntil: number; }
+
+  const getFailRecord = (): FailRecord => {
+    try {
+      const raw = sessionStorage.getItem(LOGIN_FAIL_KEY);
+      return raw ? JSON.parse(raw) : { count: 0, lockedUntil: 0 };
+    } catch { return { count: 0, lockedUntil: 0 }; }
+  };
+
+  const setFailRecord = (r: FailRecord) => {
+    try { sessionStorage.setItem(LOGIN_FAIL_KEY, JSON.stringify(r)); } catch {}
+  };
+
+  const isLocked = (): number => {
+    const r = getFailRecord();
+    if (r.lockedUntil > Date.now()) return Math.ceil((r.lockedUntil - Date.now()) / 60000);
+    return 0;
+  };
+
   // 数学验证码（防机器人注册）
   const genMathChallenge = () => {
     const ops = ['+', '-', '×'] as const;
@@ -197,16 +221,33 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
   // ── 登录 ──
   const handleLogin = async () => {
     setError('');
+    // 检查是否被锁定
+    const remaining = isLocked();
+    if (remaining > 0) {
+      setError(`登录失败次数过多，请 ${remaining} 分钟后再试`);
+      return;
+    }
     if (!validateEmail()) return;
     if (!pw) { setError(tr.auth.passwordEmpty); return; }
     setLoading(true);
     try {
       const u = await apiLogin(email.trim(), pw);
+      // 登录成功，清除失败记录
+      setFailRecord({ count: 0, lockedUntil: 0 });
       login(u);
       onClose();
       showToast(tr.appPage.welcomeBack(u.name), 'success');
     } catch (e) {
-      setError((e as ApiError).message ?? tr.appPage.loginFailed);
+      // 登录失败，累加计数
+      const rec = getFailRecord();
+      const newCount = rec.count + 1;
+      const lockedUntil = newCount >= MAX_FAIL ? Date.now() + LOCK_MS : rec.lockedUntil;
+      setFailRecord({ count: newCount, lockedUntil });
+      if (newCount >= MAX_FAIL) {
+        setError(`连续失败 ${MAX_FAIL} 次，账号已临时锁定 30 分钟`);
+      } else {
+        setError((e as ApiError).message ?? tr.appPage.loginFailed);
+      }
     } finally {
       setLoading(false);
     }

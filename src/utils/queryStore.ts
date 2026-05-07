@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '../lib/supabase';
+import { loadSysConfig } from './sysConfigStore';
 
 // ─── 查询记录 ─────────────────────────────────────────────────────────────────
 
@@ -324,8 +325,17 @@ export function rewardInviter(inviterUid: string, inviteeEmail: string, rewardAm
   const masked = maskEmail(inviteeEmail);
   const idx = stats.records.findIndex(r => r.maskedEmail === masked && !r.hasPaid);
   if (idx >= 0) {
+    // 检查累计奖励是否已达上限
+    const cfg = loadSysConfig();
+    const cap = cfg.inviteRewardCap ?? 500;
+    if (stats.totalReward >= cap) {
+      console.warn(`[queryStore] 邀请奖励已达上限 ${cap}，跳过发放`);
+      return;
+    }
+    // 本次发放不超过剩余上限
+    const actualReward = Math.min(rewardAmount, cap - stats.totalReward);
     stats.records[idx].hasPaid = true;
-    stats.records[idx].rewardCredits = rewardAmount;
+    stats.records[idx].rewardCredits = actualReward;
     stats.totalPaid = stats.records.filter(r => r.hasPaid).length;
     stats.totalReward = stats.records.reduce((s, r) => s + r.rewardCredits, 0);
     _writeInviteStats(inviterUid, stats);
