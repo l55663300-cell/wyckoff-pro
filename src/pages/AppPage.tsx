@@ -776,10 +776,148 @@ export default function AppPage() {
             </div>
           )}
 
-          {/* ── 顶部工具栏 ── */}
+          {/* ── 顶部工具栏（移动端两行布局，桌面端单行） ── */}
+          {isMobile ? (
+            <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              {/* 移动端第一行：币种+价格 / 通知+头像 */}
+              <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px 4px', gap: 8 }}>
+                {/* 左：币种 + 价格 + 涨跌幅 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.3px' }}>{displaySymbol}</span>
+                  {price > 0 && (
+                    <>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--t1)', fontFamily: 'JetBrains Mono, monospace' }}>
+                        ${formatPrice(price, symbol)}
+                      </span>
+                      <span style={{
+                        padding: '1px 6px', borderRadius: 5, fontSize: 11, fontWeight: 700,
+                        background: isPos ? 'rgba(0,200,150,0.12)' : 'rgba(255,77,109,0.12)',
+                        color: isPos ? 'var(--green)' : 'var(--red)',
+                      }}>
+                        {isPos ? '▲' : '▼'}{formatPercent(Math.abs(priceChange))}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {/* 右：语言切换 + 通知 + 头像 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <button onClick={toggleLang} style={{
+                    padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                    border: '1px solid var(--border)', background: 'transparent',
+                    color: 'var(--t2)', cursor: 'pointer',
+                  }}>{t.nav.langToggle}</button>
+                  <div style={{ position: 'relative' }}>
+                    <div id="notifBtn" onClick={() => setShowNotif(v => !v)} style={{
+                      width: 30, height: 30, borderRadius: 8, background: 'var(--bg3)',
+                      border: '1px solid var(--border)', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', cursor: 'pointer', fontSize: 14, position: 'relative',
+                    }}>
+                      🔔
+                      <span style={{
+                        position: 'absolute', top: 4, right: 4, width: 6, height: 6,
+                        borderRadius: '50%', background: 'var(--red)', border: '2px solid var(--bg2)',
+                      }} />
+                    </div>
+                    {showNotif && (
+                      <div id="notifPanel">
+                        <NotifPanel onClose={() => setShowNotif(false)} onGoRecharge={() => { setShowNotif(false); navigate('recharge'); }} uid={user?.uid} />
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <button id="avatarBtn" onClick={() => setShowAvatarDd(v => !v)} style={{
+                      width: 30, height: 30, borderRadius: '50%',
+                      background: 'linear-gradient(135deg,#f0b429,#b7791f)',
+                      border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                      color: '#1a0a00', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {user?.name?.[0]?.toUpperCase() ?? 'U'}
+                    </button>
+                    {showAvatarDd && (
+                      <div id="avatarDd">
+                        <AvatarDropdown
+                          user={user}
+                          onClose={() => setShowAvatarDd(false)}
+                          onUser={() => { setShowAvatarDd(false); navigate('user'); }}
+                          onRecharge={() => { setShowAvatarDd(false); navigate('recharge'); }}
+                          onFeedback={() => { setShowAvatarDd(false); setShowFeedbackModal(true); }}
+                          onAdmin={() => { setShowAvatarDd(false); navigate('admin'); }}
+                          onLogout={() => { setShowAvatarDd(false); localStorage.removeItem(LS_LAST_QUERY_KEY); localStorage.removeItem(LS_RESULT_KEY); localStorage.removeItem(LS_AI_REPORT_KEY); navigate('landing'); }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {/* 移动端第二行：周期 / 积分状态 + AI分析 */}
+              <div style={{ display: 'flex', alignItems: 'center', padding: '4px 12px 8px', gap: 6 }}>
+                {/* 周期切换 */}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {TF_LIST.map(tf => (
+                    <button key={tf.key} onClick={() => handleTimeframeChange(tf.key)} style={{
+                      padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                      background: activeTimeframe === tf.key ? 'rgba(240,180,41,0.1)' : 'transparent',
+                      border: `1px solid ${activeTimeframe === tf.key ? 'var(--primary)' : 'var(--border)'}`,
+                      color: activeTimeframe === tf.key ? 'var(--primary)' : 'var(--t2)',
+                      transition: 'all .15s', fontWeight: activeTimeframe === tf.key ? 700 : 400,
+                    }}>{tf.label}</button>
+                  ))}
+                </div>
+                <div style={{ flex: 1 }} />
+                {/* 重新分析（有数据时显示） */}
+                {displayResult && (
+                  <button
+                    onClick={handleForceReanalyze}
+                    disabled={reanalyzeCooldown > 0 || loading}
+                    style={{
+                      padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: reanalyzeCooldown > 0 || loading ? 'not-allowed' : 'pointer',
+                      border: `1px solid ${freshnessStatus === 'expired' ? 'rgba(239,68,68,0.4)' : 'var(--border)'}`,
+                      background: freshnessStatus === 'expired' ? 'rgba(239,68,68,0.06)' : 'transparent',
+                      color: reanalyzeCooldown > 0 ? 'var(--t4)' : freshnessStatus === 'expired' ? 'var(--red)' : 'var(--t3)',
+                      display: 'flex', alignItems: 'center', gap: 3,
+                    }}
+                  >
+                    <RefreshCw size={10} />
+                    {reanalyzeCooldown > 0 ? `${reanalyzeCooldown}s` : t.nav.reanalyze}
+                  </button>
+                )}
+                {/* 积分/订阅状态 */}
+                {(() => {
+                  const quota = quotaInfo;
+                  const label = quota.isActive
+                    ? t.nav.todayRemain(quota.daily, quota.total)
+                    : quota.expireAt ? t.nav.subscriptionExpired : t.nav.noSubscription;
+                  const color = !quota.isActive ? 'var(--red)' : quota.daily <= 5 ? 'var(--warn)' : 'var(--primary)';
+                  const bg = !quota.isActive ? 'rgba(239,68,68,0.08)' : quota.daily <= 5 ? 'rgba(245,158,11,0.08)' : 'rgba(240,180,41,0.08)';
+                  const border = !quota.isActive ? 'rgba(239,68,68,0.25)' : quota.daily <= 5 ? 'rgba(245,158,11,0.3)' : 'rgba(240,180,41,0.2)';
+                  return (
+                    <div
+                      onClick={() => { setQuotaBlockReason(''); setShowCreditsModal(true); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '4px 9px', borderRadius: 7, cursor: 'pointer',
+                        background: bg, border: `1px solid ${border}`,
+                        fontSize: 11, color, whiteSpace: 'nowrap',
+                      }}
+                    >⚡ <strong>{label}</strong></div>
+                  );
+                })()}
+                {/* AI分析按钮 */}
+                <button onClick={() => handleAnalyze()} disabled={loading} style={{
+                  padding: '5px 14px', borderRadius: 8,
+                  background: 'linear-gradient(135deg, #f0b429, #e8920a)',
+                  color: '#000', fontWeight: 700, fontSize: 13, border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 4, opacity: loading ? 0.7 : 1, whiteSpace: 'nowrap',
+                }}>
+                  <RefreshCw size={12} className={loading ? 'spin-slow' : ''} />
+                  {loading ? t.nav.analyzing : t.nav.aiAnalysis}
+                </button>
+              </div>
+            </div>
+          ) : (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 8,
-            padding: isMobile ? '6px 10px' : '8px 14px', borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 14px', borderBottom: '1px solid var(--border)',
             background: 'var(--bg2)', flexShrink: 0, flexWrap: 'wrap',
           }}>
             {/* Symbol + price */}
@@ -822,7 +960,6 @@ export default function AppPage() {
             {/* 缓存提示 + 重新分析按钮 */}
             {displayResult && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {/* 时效状态标签：优先展示 freshnessStatus，内存缓存过期时用 cacheExpired */}
                 {(freshnessStatus === 'expired' || (freshnessStatus === 'fresh' && cacheExpired)) && (
                   <span style={{ fontSize: 10, color: 'var(--red)', background: 'rgba(239,68,68,0.08)', padding: '2px 7px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.25)', whiteSpace: 'nowrap' }}>
                     数据已过期，建议重新分析
@@ -878,15 +1015,15 @@ export default function AppPage() {
               );
             })()}
 
-            {/* 自动刷新（手机端隐藏） */}
-            {!isMobile && <button onClick={() => setAutoRefresh(v => !v)} style={{
+            {/* 自动刷新 */}
+            <button onClick={() => setAutoRefresh(v => !v)} style={{
               display: 'flex', alignItems: 'center', gap: 3, padding: '4px 9px',
               border: `1px solid ${autoRefresh ? 'var(--primary)' : 'var(--border)'}`,
               borderRadius: 8, background: autoRefresh ? 'rgba(240,180,41,0.08)' : 'transparent',
               color: autoRefresh ? 'var(--primary)' : 'var(--t3)', fontSize: 11, cursor: 'pointer',
             }}>
               <Activity size={11} />{autoRefresh ? t.nav.auto : t.nav.manual}
-            </button>}
+            </button>
 
             {/* 语言切换 */}
             <button
@@ -929,25 +1066,25 @@ export default function AppPage() {
               {loading ? t.nav.analyzing : t.nav.aiAnalysis}
             </button>
 
-            {/* 推送按钮（手机端隐藏） */}
-            {!isMobile && <button onClick={() => setShowAlertModal(true)} style={{
+            {/* 推送按钮 */}
+            <button onClick={() => setShowAlertModal(true)} style={{
               display: 'flex', alignItems: 'center', gap: 3, padding: '4px 9px',
               border: `1px solid ${pushConfig.enabled ? 'var(--green)' : 'var(--border)'}`,
               borderRadius: 8, background: pushConfig.enabled ? 'rgba(0,200,150,0.08)' : 'transparent',
               color: pushConfig.enabled ? 'var(--green)' : 'var(--t3)', fontSize: 11, cursor: 'pointer',
             }}>
               <Bell size={11} /> 推送
-            </button>}
+            </button>
 
-            {/* 更新时间（手机端隐藏） */}
-            {!isMobile && <div style={{ fontSize: 11, color: 'var(--t3)', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+            {/* 更新时间 */}
+            <div style={{ fontSize: 11, color: 'var(--t3)', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
               <div style={{
                 width: 6, height: 6, borderRadius: '50%',
                 background: loading ? '#f59e0b' : displayResult ? 'var(--green)' : 'var(--t3)',
                 animation: loading ? 'badge-pulse 0.8s infinite' : undefined,
               }} />
               {loading ? '分析中...' : displayResult ? cacheTimeLabel + ' 更新' : '未分析'}
-            </div>}
+            </div>
 
             {/* 管理员后台入口 */}
             {user?.isAdmin && (
@@ -983,6 +1120,7 @@ export default function AppPage() {
               )}
             </div>
           </div>
+          )}
 
           {/* ── 图表+右面板（移动端隐藏图表区，只展示右侧面板内容） ── */}
           <div style={{ flex: 1, display: isMobile ? 'none' : 'flex', overflow: 'hidden', minHeight: 0 }}>
