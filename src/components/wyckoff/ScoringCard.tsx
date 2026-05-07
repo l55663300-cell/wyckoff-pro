@@ -1,48 +1,60 @@
 import React from 'react';
 import { ScoringResult } from '../../types';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { useT, getLang } from '../../i18n';
 
 interface ScoringCardProps {
   scoring: ScoringResult;
 }
 
-const DIRECTION_CONFIG = {
-  long: {
-    label: '建议做多',
-    icon: TrendingUp,
-    color: '#00C896',
-    bg: 'rgba(0,200,150,0.10)',
-    border: 'rgba(0,200,150,0.25)',
-    barColor: 'linear-gradient(90deg, #00A878, #00C896)',
-  },
-  short: {
-    label: '建议做空',
-    icon: TrendingDown,
-    color: '#FF4D6A',
-    bg: 'rgba(255,77,106,0.10)',
-    border: 'rgba(255,77,106,0.25)',
-    barColor: 'linear-gradient(90deg, #CC1E38, #FF4D6A)',
-  },
-  neutral: {
-    label: '建议观望',
-    icon: Minus,
-    color: '#A0A8B8',
-    bg: 'rgba(92,100,120,0.10)',
-    border: 'rgba(92,100,120,0.25)',
-    barColor: 'linear-gradient(90deg, #3C4455, #5C6478)',
-  },
-};
-
-const TF_LABELS: Record<string, string> = {
+const TF_LABELS_ZH: Record<string, string> = {
   '1d': '日线',
   '4h': '4小时',
   '1h': '1小时',
   '15m': '15分钟',
 };
+const TF_LABELS_EN: Record<string, string> = {
+  '1d': 'Daily',
+  '4h': '4H',
+  '1h': '1H',
+  '15m': '15m',
+};
 
 export const ScoringCard: React.FC<ScoringCardProps> = ({ scoring }) => {
+  const t = useT();
+
+  const DIRECTION_CONFIG = {
+    long: {
+      label: t.scoring.longLabel,
+      icon: TrendingUp,
+      color: '#00C896',
+      bg: 'rgba(0,200,150,0.10)',
+      border: 'rgba(0,200,150,0.25)',
+      barColor: 'linear-gradient(90deg, #00A878, #00C896)',
+    },
+    short: {
+      label: t.scoring.shortLabel,
+      icon: TrendingDown,
+      color: '#FF4D6A',
+      bg: 'rgba(255,77,106,0.10)',
+      border: 'rgba(255,77,106,0.25)',
+      barColor: 'linear-gradient(90deg, #CC1E38, #FF4D6A)',
+    },
+    neutral: {
+      label: t.scoring.neutralLabel,
+      icon: Minus,
+      color: '#A0A8B8',
+      bg: 'rgba(92,100,120,0.10)',
+      border: 'rgba(92,100,120,0.25)',
+      barColor: 'linear-gradient(90deg, #3C4455, #5C6478)',
+    },
+  };
+
   const dir = DIRECTION_CONFIG[scoring.direction];
   const Icon = dir.icon;
+
+  // 时间框架标签根据语言选择
+  const TF_LABELS = getLang() === 'en' ? TF_LABELS_EN : TF_LABELS_ZH;
 
   const probColor = scoring.probability >= 70
     ? '#00C896'
@@ -59,11 +71,11 @@ export const ScoringCard: React.FC<ScoringCardProps> = ({ scoring }) => {
         </div>
         <div className="flex-1">
           <div className="font-bold text-base text-white leading-none">{dir.label}</div>
-          <div style={{ color: '#5C6478', fontSize: '10px', marginTop: '2px', letterSpacing: '0.04em' }}>多周期共振 · 综合评分</div>
+          <div style={{ color: '#5C6478', fontSize: '10px', marginTop: '2px', letterSpacing: '0.04em' }}>{t.scoring.resonanceLabel}</div>
         </div>
         <div className="text-right">
           <div className="font-mono font-bold text-2xl num-display" style={{ color: probColor }}>{scoring.probability}<span style={{ fontSize: '14px' }}>%</span></div>
-          <div style={{ color: '#5C6478', fontSize: '10px' }}>概率</div>
+          <div style={{ color: '#5C6478', fontSize: '10px' }}>{t.scoring.probability}</div>
         </div>
       </div>
 
@@ -78,7 +90,7 @@ export const ScoringCard: React.FC<ScoringCardProps> = ({ scoring }) => {
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-semibold" style={{ color: '#A0A8B8', minWidth: '48px' }}>{TF_LABELS[b.timeframe] || b.label}</span>
-                    <span style={{ color: '#5C6478', fontSize: '10px' }}>权重 {(b.weight * 100).toFixed(0)}%</span>
+                    <span style={{ color: '#5C6478', fontSize: '10px' }}>{t.scoring.weightLabel(Math.round(b.weight * 100))}</span>
                   </div>
                   <span className="font-mono font-bold text-sm" style={{ color: bColor }}>
                     {b.score > 0 ? '+' : ''}{b.score}
@@ -107,7 +119,7 @@ export const ScoringCard: React.FC<ScoringCardProps> = ({ scoring }) => {
         {/* Signals */}
         {scoring.signals.length > 0 && (
           <div>
-            <div className="section-title mb-2">触发信号</div>
+            <div className="section-title mb-2">{t.scoring.triggeredSignals}</div>
             <div className="flex flex-wrap gap-1.5">
               {scoring.signals.map((sig, i) => (
                 <span key={i} className="text-xs px-2.5 py-1 rounded-lg badge-warn font-medium">{sig}</span>
@@ -119,7 +131,7 @@ export const ScoringCard: React.FC<ScoringCardProps> = ({ scoring }) => {
         {/* Total score bar */}
         <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
           <div className="flex items-center justify-between mb-2">
-            <span style={{ color: '#5C6478', fontSize: '11px' }}>综合得分</span>
+            <span style={{ color: '#5C6478', fontSize: '11px' }}>{t.scoring.totalScore}</span>
             <span className="font-mono font-bold text-sm" style={{ color: scoring.score > 0 ? '#00C896' : '#FF4D6A' }}>
               {scoring.score > 0 ? '+' : ''}{scoring.score.toFixed(1)} / 10
             </span>

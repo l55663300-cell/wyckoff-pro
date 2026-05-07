@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Symbol, DEFAULT_SYMBOLS } from '../../types';
+import { useT } from '../../i18n';
 
 const SYMBOL_META: Record<string, { icon: string; label: string }> = {
   ETHUSDT:  { icon: '💎', label: 'ETH' },
@@ -39,6 +40,7 @@ interface SymbolSidebarProps {
 export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
   symbol, onSymbolChange, loading, price = 0, priceChange24h = 0, onLogoClick,
 }) => {
+  const t = useT();
   const [watchlist, setWatchlist] = useState<string[]>(loadWatchlist);
   const [input, setInput] = useState('');
   const [inputErr, setInputErr] = useState('');
@@ -48,11 +50,11 @@ export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
     const sym = input.trim().toUpperCase();
     if (!sym) return;
     if (/[^\w]/.test(sym) || /[\u4e00-\u9fa5]/.test(sym)) {
-      setInputErr('只支持字母/数字'); return;
+      setInputErr(t.sidebar.invalidInput); return;
     }
     const full = sym.endsWith('USDT') ? sym : sym + 'USDT';
     if (watchlist.includes(full)) {
-      setInputErr('已在列表中'); return;
+      setInputErr(t.sidebar.alreadyInList); return;
     }
     const next = [...watchlist, full];
     setWatchlist(next);
@@ -60,11 +62,11 @@ export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
     setInput('');
     setInputErr('');
     onSymbolChange(full);
-  }, [input, watchlist, onSymbolChange]);
+  }, [input, watchlist, onSymbolChange, t]);
 
   const handleRemove = useCallback((sym: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (DEFAULT_SYMBOLS.includes(sym as typeof DEFAULT_SYMBOLS[number])) return; // 预设不允许删
+    if (DEFAULT_SYMBOLS.includes(sym as typeof DEFAULT_SYMBOLS[number])) return;
     const next = watchlist.filter((s) => s !== sym);
     setWatchlist(next);
     saveWatchlist(next);
@@ -90,7 +92,7 @@ export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
           cursor: onLogoClick ? 'pointer' : 'default',
         }}
         onClick={onLogoClick}
-        title={onLogoClick ? '返回首页' : undefined}
+        title={onLogoClick ? t.sidebar.backHome : undefined}
       >
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center text-base shrink-0"
@@ -99,8 +101,8 @@ export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
           🦞
         </div>
         <div>
-          <div className="font-bold text-white text-sm leading-none" style={{ letterSpacing: '-0.02em' }}>威科夫Pro</div>
-          <div style={{ color: '#3C4255', fontSize: '9px', letterSpacing: '0.06em' }}>v3.0 · 专业终端</div>
+          <div className="font-bold text-white text-sm leading-none" style={{ letterSpacing: '-0.02em' }}>{t.sidebar.brandName}</div>
+          <div style={{ color: '#3C4255', fontSize: '9px', letterSpacing: '0.06em' }}>{t.sidebar.version}</div>
         </div>
       </div>
 
@@ -128,7 +130,7 @@ export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
             value={input}
             onChange={(e) => { setInput(e.target.value); setInputErr(''); }}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-            placeholder="输入币对 回车添加"
+            placeholder={t.sidebar.inputPlaceholder}
             maxLength={16}
             className="flex-1 min-w-0 px-2 py-1.5 rounded-lg text-xs text-white font-mono outline-none"
             style={{
@@ -149,7 +151,7 @@ export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
 
       {/* 自选列表 */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-2.5 py-1.5 text-xs font-semibold" style={{ color: '#3C4255' }}>自选列表</div>
+        <div className="px-2.5 py-1.5 text-xs font-semibold" style={{ color: '#3C4255' }}>{t.sidebar.watchlistTitle}</div>
         {watchlist.map((sym) => {
           const meta = getSymbolMeta(sym);
           const isActive = sym === symbol;
@@ -201,7 +203,7 @@ export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
             animation: loading ? 'badge-pulse 1s infinite' : 'badge-pulse 3s infinite',
           }}
         />
-        <span className="text-xs" style={{ color: '#3C4255' }}>{loading ? '分析中...' : '就绪'}</span>
+        <span className="text-xs" style={{ color: '#3C4255' }}>{loading ? t.sidebar.analyzing : t.sidebar.ready}</span>
       </div>
     </aside>
   );

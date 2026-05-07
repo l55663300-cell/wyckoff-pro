@@ -1,47 +1,34 @@
 /**
  * sysConfigStore — 全局系统配置（后台可编辑，前台实时读取）
+ * v2: 主存 Supabase site_config 表，localStorage 作一级缓存
  */
 
+import { supabase } from '../lib/supabase';
+
 const LS_KEY = 'wyckoff_sys_config_v1';
+const DB_KEY = 'sys_config';
 
 export interface SysConfig {
   siteName: string;
   supportEmail: string;
-  supportWeChat?: string;       // 客服微信号
-  supportNote?: string;         // 客服补充说明（如"工作日9-18时响应"）
-  /** 订阅说明文本，显示在订阅页付款步骤，支持换行（\n） */
+  supportWeChat?: string;
+  supportNote?: string;
   subscriptionNote: string;
-  /** 审核时效说明 */
   reviewTimeNote: string;
-  /** 转账提示文字（显示在付款步骤钱包地址下方，支持换行\n） */
   paymentNote: string;
-  /** 是否开放注册 */
   registrationOpen: boolean;
-  /** 维护模式 */
   maintenanceMode: boolean;
-  /** 新用户注册赠送每日次数（免费试用套餐 dailyLimit） */
   freeTrialDailyLimit: number;
-  /** 新用户注册赠送有效天数 */
   freeTrialDays: number;
-  /** 管理员通知邮箱（充值订单到来时发邮件提醒） */
   adminNotifyEmail?: string;
-  /** 管理员微信推送 Server酱 SendKey（充值订单到来时推送微信） */
   adminNotifySendKey?: string;
-  /** 邀请人奖励次数（被邀请人首充后发放） */
   inviterRewardCredits: number;
-  /** 被邀请人注册奖励次数 */
   inviteeRewardCredits: number;
-  /** 邀请奖励上限（每人最多可获得的奖励次数） */
   inviteRewardCap: number;
-  /** 登录失败锁定阈值（次） */
   loginLockThreshold: number;
-  /** 锁定时长（分钟） */
   loginLockMinutes: number;
-  /** API 限速（次/分钟/IP） */
   apiRateLimitPerMin: number;
-  /** AI查询限速（次/小时/用户），作为兜底上限 */
   aiQueryLimitPerHour: number;
-  /** 是否开启自动支付（NowPayments），KYC 通过后开启 */
   autoPayEnabled: boolean;
 }
 
@@ -53,7 +40,8 @@ const DEFAULT_CONFIG: SysConfig = {
   subscriptionNote:
     '• 提交订单后，请耐心等待管理员审核。\n• 审核通过后订阅立即生效，到期前续费可顺延。\n• 不支持退款，如有问题请联系客服邮箱或微信。\n• 请确保转账网络与钱包一致，否则资产将永久丢失。',
   reviewTimeNote: '工作日 2 小时内审核，节假日可能延迟',
-  paymentNote: '📌 请向上方对应网络地址转账对应金额 USDT\n📧 转账备注请填写您的注册邮箱\n⚠️ 请确认网络类型与钱包一致，否则资产将永久丢失',
+  paymentNote:
+    '📌 请向上方对应网络地址转账对应金额 USDT\n📧 转账备注请填写您的注册邮箱\n⚠️ 请确认网络类型与钱包一致，否则资产将永久丢失',
   registrationOpen: true,
   maintenanceMode: false,
   freeTrialDailyLimit: 3,
@@ -70,6 +58,8 @@ const DEFAULT_CONFIG: SysConfig = {
   autoPayEnabled: false,
 };
 
+// ─── 同步读（优先 localStorage 缓存，用于非关键路径） ─────────────────────────
+
 export function loadSysConfig(): SysConfig {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -78,7 +68,55 @@ export function loadSysConfig(): SysConfig {
   return { ...DEFAULT_CONFIG };
 }
 
+// ─── 异步读（从 Supabase 拉取最新，回写 localStorage） ───────────────────────
+
+export async function fetchSysConfig(): Promise<SysConfig> {
+  try {
+    const { data, error } = await supabase
+      .from('site_config')
+      .select('value')
+      .eq('key', DB_KEY)
+      .single();
+    if (!error && data?.value) {
+      const merged = { ...DEFAULT_CONFIG, ...(data.value as Partial<SysConfig>) };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(merged)); } catch {}
+      return merged;
+    }
+  } catch (e) {
+    console.warn('[sysConfigStore] Supabase 读取失败，降级到 localStorage:', e);
+  }
+  return loadSysConfig();
+}
+
+// ─── 写（同时更新 localStorage + Supabase） ───────────────────────────────────
+
 export function saveSysConfig(cfg: Partial<SysConfig>) {
   const current = loadSysConfig();
-  localStorage.setItem(LS_KEY, JSON.stringify({ ...current, ...cfg }));
+  const next = { ...current, ...cfg };
+  try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch {}
+
+  // 异步写 Supabase（管理员调用，失败打印日志）
+  void supabase
+    .from('site_config')
+    .upsert({ key: DB_KEY, value: next, updated_at: new Date().toISOString() })
+    .then(({ error }) => {
+      if (error) console.error('[sysConfigStore] Supabase 写入失败:', error.message);
+    });
+}
+
+// ─── 管理员专用：强制写并等待结果 ────────────────────────────────────────────
+
+export async function saveSysConfigAsync(cfg: Partial<SysConfig>): Promise<boolean> {
+  const current = loadSysConfig();
+  const next = { ...current, ...cfg };
+  try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch {}
+
+  const { error } = await supabase
+    .from('site_config')
+    .upsert({ key: DB_KEY, value: next, updated_at: new Date().toISOString() });
+  if (error) {
+    console.error('[sysConfigStore] Supabase 写入失败:', error.message);
+    return false;
+  }
+  return true;
 }

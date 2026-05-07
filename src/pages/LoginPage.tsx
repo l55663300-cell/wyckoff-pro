@@ -11,6 +11,7 @@ import {
 } from '../api/auth';
 import { useT } from '../i18n';
 
+
 type AuthView = 'login' | 'register' | 'forgot';
 
 // 验证码相关 API（走 Cloudflare Function）
@@ -21,7 +22,7 @@ async function sendVerifyCode(email: string): Promise<void> {
     body: JSON.stringify({ email }),
   });
   const data = await resp.json() as { ok?: boolean; error?: string };
-  if (!resp.ok || !data.ok) throw new Error(data.error ?? '验证码发送失败');
+  if (!resp.ok || !data.ok) throw new Error(data.error ?? 'Failed to send code');
 }
 
 async function verifyCode(email: string, code: string): Promise<void> {
@@ -31,7 +32,7 @@ async function verifyCode(email: string, code: string): Promise<void> {
     body: JSON.stringify({ email, code }),
   });
   const data = await resp.json() as { ok?: boolean; error?: string };
-  if (!resp.ok || !data.ok) throw new Error(data.error ?? '验证码错误');
+  if (!resp.ok || !data.ok) throw new Error(data.error ?? 'Invalid code');
 }
 
 interface LoginModalProps {
@@ -203,9 +204,9 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
       const u = await apiLogin(email.trim(), pw);
       login(u);
       onClose();
-      showToast(`欢迎回来，${u.name}`, 'success');
+      showToast(tr.appPage.welcomeBack(u.name), 'success');
     } catch (e) {
-      setError((e as ApiError).message ?? '登录失败，请稍后重试');
+      setError((e as ApiError).message ?? tr.appPage.loginFailed);
     } finally {
       setLoading(false);
     }
@@ -229,7 +230,7 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
       setCodeSent(true);
       setCodeCountdown(60);
     } catch (e) {
-      setError((e as Error).message ?? '发送失败，请稍后重试');
+      setError((e as Error).message ?? tr.appPage.sendFailed);
     } finally {
       setSendingCode(false);
     }
@@ -244,7 +245,7 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
       await verifyCode(email.trim().toLowerCase(), verifyCodeVal.trim());
       setCodeVerified(true);
     } catch (e) {
-      setError((e as Error).message ?? '验证码错误');
+      setError((e as Error).message ?? tr.appPage.codeError);
     } finally {
       setLoading(false);
     }
@@ -266,9 +267,9 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
       const u = await apiRegister(email.trim(), pw, agreed, inviteCode || undefined);
       login(u);
       onClose();
-      showToast(`注册成功！已赠送 ${u.welcomeCredits} 次免费额度 🎁`, 'success', 5000);
+      showToast(tr.appPage.registerSuccess(u.welcomeCredits), 'success', 5000);
     } catch (e) {
-      setError((e as ApiError).message ?? '注册失败，请稍后重试');
+      setError((e as ApiError).message ?? tr.appPage.registerFailed);
     } finally {
       setLoading(false);
     }
@@ -283,7 +284,7 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
       await apiResetRequest(email.trim());
       setResetSent(true);
     } catch (e) {
-      setError((e as ApiError).message ?? '发送失败，请稍后重试');
+      setError((e as ApiError).message ?? tr.appPage.resetFailed);
     } finally {
       setLoading(false);
     }
@@ -569,7 +570,7 @@ export function LoginModal({ defaultTab = 'login', onClose }: LoginModalProps) {
                       style={{ marginTop: 2, accentColor: '#f0b429', flexShrink: 0 }} />
                     {tr.auth.agreeText}&nbsp;
                     <a style={{ color: '#f0b429', cursor: 'pointer', textDecoration: 'none' }}>{tr.auth.termsLink}</a>
-                    &nbsp;{tr.auth.agreeText.includes('and') ? 'and' : '和'}&nbsp;
+                    &nbsp;{tr.appPage.andWord}&nbsp;
                     <a style={{ color: '#f0b429', cursor: 'pointer', textDecoration: 'none' }}>{tr.auth.privacyLink}</a>
                   </label>
                 </div>

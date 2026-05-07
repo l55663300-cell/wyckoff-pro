@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { fetchOrderBook, OrderBook, detectBigWalls } from '../../api/orderBookApi';
 import { Symbol } from '../../types';
 import { formatPrice } from '../../utils/formatters';
+import { useT } from '../../i18n';
 
 interface Props {
   symbol: Symbol;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Props) {
+  const t = useT();
   const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -57,14 +59,14 @@ export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Prop
     };
   }, [orderBook, walls]);
 
-  const bidLabel = walls.bidWalls.length > 0 ? `${walls.bidWalls.length}强支撑` : '支撑';
-  const askLabel = walls.askWalls.length > 0 ? `${walls.askWalls.length}强阻力` : '阻力';
+  const bidLabel = walls.bidWalls.length > 0 ? t.orderbook.support(walls.bidWalls.length) : t.orderbook.supportLabel;
+  const askLabel = walls.askWalls.length > 0 ? t.orderbook.resistance(walls.askWalls.length) : t.orderbook.resistanceLabel;
 
   if (loading) return (
     <div className="card" style={{ padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--t1)' }}>订单簿热力图</span>
-        <span style={{ fontSize: 10, color: 'var(--t4)' }}>加载中...</span>
+        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--t1)' }}>{t.orderbook.title}</span>
+        <span style={{ fontSize: 10, color: 'var(--t4)' }}>{t.orderbook.loading}</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div className="skeleton" style={{ height: 80, borderRadius: 10 }} />
@@ -75,9 +77,9 @@ export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Prop
 
   if (error || !orderBook) return (
     <div className="card" style={{ padding: '12px 14px' }}>
-      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--t1)', marginBottom: 8 }}>订单簿热力图</div>
+      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--t1)', marginBottom: 8 }}>{t.orderbook.title}</div>
       <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--t3)', fontSize: 12 }}>
-        ⚠️ 数据加载失败（仅支持合约品种）
+        {t.orderbook.loadFailed}
       </div>
     </div>
   );
@@ -86,11 +88,11 @@ export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Prop
     <div className="card" style={{ padding: compact ? '8px 12px' : '12px 14px', height: '100%', boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: compact ? 6 : 10 }}>
-        <span style={{ fontWeight: 600, fontSize: compact ? 12 : 13, color: 'var(--t1)' }}>订单簿热力图</span>
+        <span style={{ fontWeight: 600, fontSize: compact ? 12 : 13, color: 'var(--t1)' }}>{t.orderbook.title}</span>
         <span style={{
           fontSize: 11, padding: '2px 8px', borderRadius: 20,
           background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0',
-        }}>简化深度</span>
+        }}>{t.orderbook.simplified}</span>
       </div>
 
       {/* 双列卡片 */}
@@ -103,7 +105,7 @@ export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Prop
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#16a34a', flexShrink: 0 }} />
-            <span style={{ fontWeight: 600, fontSize: 12, color: '#15803d' }}>买单墙（支撑）</span>
+            <span style={{ fontWeight: 600, fontSize: 12, color: '#15803d' }}>{t.orderbook.bidWall}</span>
           </div>
           {topBid ? (
             <>
@@ -131,7 +133,7 @@ export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Prop
               )}
             </>
           ) : (
-            <div style={{ fontSize: 11, color: 'var(--t3)' }}>暂无大单</div>
+            <div style={{ fontSize: 11, color: 'var(--t3)' }}>{t.orderbook.noOrders}</div>
           )}
         </div>
 
@@ -142,7 +144,7 @@ export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Prop
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#dc2626', flexShrink: 0 }} />
-            <span style={{ fontWeight: 600, fontSize: 12, color: '#b91c1c' }}>卖单墙（阻力）</span>
+            <span style={{ fontWeight: 600, fontSize: 12, color: '#b91c1c' }}>{t.orderbook.askWall}</span>
           </div>
           {topAsk ? (
             <>
@@ -160,7 +162,7 @@ export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Prop
               </div>
               {walls.askWalls[1] && (
                 <div style={{ fontSize: 10, color: '#b91c1c' }}>
-                  ${formatPrice(walls.askWalls[1].price, symbol)} · 卖压密集
+                  ${formatPrice(walls.askWalls[1].price, symbol)} · {t.orderbook.askDense}
                 </div>
               )}
               {!walls.askWalls[1] && topAsk && (
@@ -170,7 +172,7 @@ export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Prop
               )}
             </>
           ) : (
-            <div style={{ fontSize: 11, color: 'var(--t3)' }}>暂无大单</div>
+            <div style={{ fontSize: 11, color: 'var(--t3)' }}>{t.orderbook.noOrders}</div>
           )}
         </div>
       </div>
@@ -182,14 +184,14 @@ export function OrderBookHeatmap({ symbol, currentPrice, compact = false }: Prop
           <div style={{ flex: 1, background: '#dc2626' }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
-          <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>买压 {bidBarPct}%</span>
-          <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>卖压 {askBarPct}%</span>
+          <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>{t.orderbook.bidPct(bidBarPct)}</span>
+          <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>{t.orderbook.askPct(askBarPct)}</span>
         </div>
       </div>
 
       {/* 底部提示 */}
       <div style={{ fontSize: 10, color: 'var(--t4)', textAlign: 'center', paddingTop: 4, borderTop: '1px solid var(--bd-light)' }}>
-        鼠标悬浮查看具体价位 · 5s刷新
+        {t.orderbook.hoverHint}
       </div>
     </div>
   );

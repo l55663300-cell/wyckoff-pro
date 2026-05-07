@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X, Bell, ExternalLink, CheckCircle, AlertCircle, Send, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Bell, ExternalLink, CheckCircle, AlertCircle, Send } from 'lucide-react';
 import { WechatPushConfig, loadPushConfig, savePushConfig, sendWechatPush } from '../utils/wechatPush';
+import { useT } from '../i18n';
 
 interface WechatAlertModalProps {
   onClose: () => void;
@@ -8,6 +9,7 @@ interface WechatAlertModalProps {
 }
 
 export const WechatAlertModal: React.FC<WechatAlertModalProps> = ({ onClose, onSave }) => {
+  const t = useT();
   const [config, setConfig] = useState<WechatPushConfig>(loadPushConfig);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -20,7 +22,7 @@ export const WechatAlertModal: React.FC<WechatAlertModalProps> = ({ onClose, onS
 
   const handleTest = async () => {
     if (!config.sendKey.trim()) {
-      setTestResult({ ok: false, msg: '请先填写 SendKey' });
+      setTestResult({ ok: false, msg: t.wechat.sendKeyRequired });
       return;
     }
     setTesting(true);
@@ -47,8 +49,8 @@ export const WechatAlertModal: React.FC<WechatAlertModalProps> = ({ onClose, onS
             <Bell size={18} style={{ color: '#00D4AA' }} />
           </div>
           <div className="flex-1">
-            <div className="font-bold text-lg text-white">微信推送设置</div>
-            <div style={{ color: '#5C6478', fontSize: '12px' }}>有入场信号时自动推送到微信</div>
+            <div className="font-bold text-lg text-white">{t.wechat.title}</div>
+            <div style={{ color: '#5C6478', fontSize: '12px' }}>{t.wechat.subtitle}</div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg transition-colors cursor-pointer" style={{ color: '#5C6478' }}>
             <X size={18} />
@@ -58,19 +60,22 @@ export const WechatAlertModal: React.FC<WechatAlertModalProps> = ({ onClose, onS
         <div className="p-6 space-y-5">
           {/* How to get SendKey */}
           <div className="p-4 rounded-xl" style={{ background: 'rgba(77,159,255,0.06)', border: '1px solid rgba(77,159,255,0.15)' }}>
-            <div className="font-semibold text-sm mb-2" style={{ color: '#4D9FFF' }}>📱 如何获取 SendKey？</div>
+            <div className="font-semibold text-sm mb-2" style={{ color: '#4D9FFF' }}>{t.wechat.howToTitle}</div>
             <ol className="space-y-1.5" style={{ color: '#A0A8B8', fontSize: '12px' }}>
               <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'rgba(77,159,255,0.2)', color: '#4D9FFF' }}>1</span>
-                <span>打开 <a href="https://sct.ftqq.com/" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#4D9FFF' }}>sct.ftqq.com</a>，微信扫码登录</span>
+                <span>{t.wechat.step1('sct.ftqq.com').replace('sct.ftqq.com', '')}
+                  <a href="https://sct.ftqq.com/" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#4D9FFF' }}>sct.ftqq.com</a>
+                  {t.wechat.step1('sct.ftqq.com').split('sct.ftqq.com')[1] ?? ''}
+                </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'rgba(77,159,255,0.2)', color: '#4D9FFF' }}>2</span>
-                <span>点击"发送消息"，复制页面中的 <strong style={{ color: '#E6E9F0' }}>SendKey</strong>（格式：SCT_xxxxxx）</span>
+                <span dangerouslySetInnerHTML={{ __html: t.wechat.step2.replace('SendKey', '<strong style="color:#E6E9F0">SendKey</strong>') }} />
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'rgba(77,159,255,0.2)', color: '#4D9FFF' }}>3</span>
-                <span>粘贴到下方，点击"测试推送"验证，每次分析后若有入场信号自动推送到微信</span>
+                <span>{t.wechat.step3}</span>
               </li>
             </ol>
             <a
@@ -80,15 +85,15 @@ export const WechatAlertModal: React.FC<WechatAlertModalProps> = ({ onClose, onS
               className="flex items-center gap-1.5 mt-3 text-xs font-semibold"
               style={{ color: '#4D9FFF' }}
             >
-              前往 Server酱 获取 SendKey <ExternalLink size={11} />
+              {t.wechat.goLink} <ExternalLink size={11} />
             </a>
           </div>
 
           {/* Enable toggle */}
           <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <div>
-              <div className="font-semibold text-sm text-white">启用微信推送</div>
-              <div style={{ color: '#5C6478', fontSize: '11px', marginTop: '2px' }}>达到入场条件时自动推送到微信</div>
+              <div className="font-semibold text-sm text-white">{t.wechat.enableLabel}</div>
+              <div style={{ color: '#5C6478', fontSize: '11px', marginTop: '2px' }}>{t.wechat.enableHint}</div>
             </div>
             <button
               onClick={() => setConfig((c) => ({ ...c, enabled: !c.enabled }))}
@@ -125,7 +130,7 @@ export const WechatAlertModal: React.FC<WechatAlertModalProps> = ({ onClose, onS
           {/* Min probability */}
           <div>
             <label className="block font-semibold text-sm mb-2" style={{ color: '#E6E9F0' }}>
-              触发推送的最低概率阈值：<span style={{ color: '#00D4AA' }}>{config.minProbability}%</span>
+              {t.wechat.thresholdLabel(config.minProbability)}
             </label>
             <input
               type="range"
@@ -138,11 +143,11 @@ export const WechatAlertModal: React.FC<WechatAlertModalProps> = ({ onClose, onS
               style={{ accentColor: '#00D4AA' }}
             />
             <div className="flex justify-between text-xs font-mono mt-1" style={{ color: '#5C6478' }}>
-              <span>50%（较宽松）</span>
-              <span>90%（非常严格）</span>
+              <span>{t.wechat.thresholdMin}</span>
+              <span>{t.wechat.thresholdMax}</span>
             </div>
             <div style={{ color: '#A0A8B8', fontSize: '11px', marginTop: '4px' }}>
-              仅当分析概率 ≥ {config.minProbability}% 且方向明确（做多/做空）时才推送
+              {t.wechat.thresholdHint(config.minProbability)}
             </div>
           </div>
 
@@ -150,7 +155,7 @@ export const WechatAlertModal: React.FC<WechatAlertModalProps> = ({ onClose, onS
           {testResult && (
             <div className={`flex items-center gap-2 p-3 rounded-xl text-sm ${testResult.ok ? 'badge-bull' : 'badge-bear'}`}>
               {testResult.ok ? <CheckCircle size={15} /> : <AlertCircle size={15} />}
-              <span>{testResult.ok ? '✅ 推送成功！请查看微信通知' : `❌ 推送失败：${testResult.msg}`}</span>
+              <span>{testResult.ok ? t.wechat.testSuccess : t.wechat.testFail(testResult.msg)}</span>
             </div>
           )}
 
@@ -163,14 +168,14 @@ export const WechatAlertModal: React.FC<WechatAlertModalProps> = ({ onClose, onS
               style={{ background: 'rgba(77,159,255,0.15)', color: '#4D9FFF', border: '1px solid rgba(77,159,255,0.3)' }}
             >
               <Send size={14} className={testing ? 'spin-slow' : ''} />
-              {testing ? '发送中...' : '测试推送'}
+              {testing ? t.wechat.testingBtn : t.wechat.testBtn}
             </button>
             <button
               onClick={handleSave}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-200 cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #00D4AA, #00B896)', color: '#000', boxShadow: '0 4px 16px rgba(0,212,170,0.3)' }}
             >
-              保存设置
+              {t.wechat.saveBtn}
             </button>
           </div>
         </div>

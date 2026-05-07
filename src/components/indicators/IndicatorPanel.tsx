@@ -1,43 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { IndicatorValues } from '../../types';
 import { formatPrice } from '../../utils/formatters';
+import { useT } from '../../i18n';
 
 interface IndicatorPanelProps {
   indicators: IndicatorValues;
   symbol: string;
 }
 
-const RSI_STATE = {
-  overbought: { label: '超买', color: 'var(--bear)', bg: 'var(--bear-bg)' },
-  oversold:   { label: '超卖', color: 'var(--bull)', bg: 'var(--bull-bg)' },
-  neutral:    { label: '中性', color: 'var(--t3)',   bg: 'var(--bg-subtle)' },
-};
-const MACD_STATE = {
-  golden:  { label: '金叉 ↑', color: 'var(--bull)', bg: 'var(--bull-bg)' },
-  dead:    { label: '死叉 ↓', color: 'var(--bear)', bg: 'var(--bear-bg)' },
-  neutral: { label: '中性',   color: 'var(--t3)',   bg: 'var(--bg-subtle)' },
-};
-const BB_POSITION = {
-  above_upper: { label: '上轨以上', color: 'var(--bear)', bg: 'var(--bear-bg)' },
-  near_upper:  { label: '接近上轨', color: 'var(--warn)', bg: 'var(--warn-bg)' },
-  middle:      { label: '中轨区间', color: 'var(--t3)',   bg: 'var(--bg-subtle)' },
-  near_lower:  { label: '接近下轨', color: 'var(--bull)', bg: 'var(--bull-bg)' },
-  below_lower: { label: '下轨以下', color: 'var(--bull)', bg: 'var(--bull-bg)' },
-};
-const ADX_STATE = {
-  strong_bull: { label: '强趋势多头', color: 'var(--bull)', bg: 'var(--bull-bg)' },
-  strong_bear: { label: '强趋势空头', color: 'var(--bear)', bg: 'var(--bear-bg)' },
-  trending:    { label: '弱趋势',     color: 'var(--warn)', bg: 'var(--warn-bg)' },
-  ranging:     { label: '震荡',       color: 'var(--t3)',   bg: 'var(--bg-subtle)' },
-};
-
 export const IndicatorPanel: React.FC<IndicatorPanelProps> = ({ indicators, symbol }) => {
+  const t = useT();
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
   }, []);
+
+  const RSI_STATE = {
+    overbought: { label: t.indicator.rsiOverbought, color: 'var(--bear)', bg: 'var(--bear-bg)' },
+    oversold:   { label: t.indicator.rsiOversold,   color: 'var(--bull)', bg: 'var(--bull-bg)' },
+    neutral:    { label: t.indicator.rsiNeutral,     color: 'var(--t3)',   bg: 'var(--bg-subtle)' },
+  };
+  const MACD_STATE = {
+    golden:  { label: t.indicator.macdGolden,  color: 'var(--bull)', bg: 'var(--bull-bg)' },
+    dead:    { label: t.indicator.macdDead,    color: 'var(--bear)', bg: 'var(--bear-bg)' },
+    neutral: { label: t.indicator.macdNeutral, color: 'var(--t3)',   bg: 'var(--bg-subtle)' },
+  };
+  const BB_POSITION = {
+    above_upper: { label: t.indicator.bbAboveUpper, color: 'var(--bear)', bg: 'var(--bear-bg)' },
+    near_upper:  { label: t.indicator.bbNearUpper,  color: 'var(--warn)', bg: 'var(--warn-bg)' },
+    middle:      { label: t.indicator.bbMiddle,      color: 'var(--t3)',   bg: 'var(--bg-subtle)' },
+    near_lower:  { label: t.indicator.bbNearLower,  color: 'var(--bull)', bg: 'var(--bull-bg)' },
+    below_lower: { label: t.indicator.bbBelowLower, color: 'var(--bull)', bg: 'var(--bull-bg)' },
+  };
+  const ADX_STATE = {
+    strong_bull: { label: t.indicator.adxStrongBull, color: 'var(--bull)', bg: 'var(--bull-bg)' },
+    strong_bear: { label: t.indicator.adxStrongBear, color: 'var(--bear)', bg: 'var(--bear-bg)' },
+    trending:    { label: t.indicator.adxTrending,   color: 'var(--warn)', bg: 'var(--warn-bg)' },
+    ranging:     { label: t.indicator.adxRanging,    color: 'var(--t3)',   bg: 'var(--bg-subtle)' },
+  };
 
   const rsiConf  = RSI_STATE[indicators.rsiState];
   const macdConf = MACD_STATE[indicators.macdState];
@@ -54,7 +56,7 @@ export const IndicatorPanel: React.FC<IndicatorPanelProps> = ({ indicators, symb
       stateBg: rsiConf.bg,
       bar: indicators.rsi,
       barColor: rsiConf.color,
-      desc: `超卖区 <30 · 超买区 >70`,
+      desc: t.indicator.rsiDesc,
     },
     {
       name: 'MACD (12,26,9)',
@@ -63,7 +65,7 @@ export const IndicatorPanel: React.FC<IndicatorPanelProps> = ({ indicators, symb
       state: macdConf.label,
       stateColor: macdConf.color,
       stateBg: macdConf.bg,
-      desc: indicators.macdHist > 0 ? '柱状图为正，动能偏多' : '柱状图为负，动能偏空',
+      desc: indicators.macdHist > 0 ? t.indicator.macdBullDesc : t.indicator.macdBearDesc,
     },
     {
       name: '布林带 (20,2)',
@@ -78,10 +80,10 @@ export const IndicatorPanel: React.FC<IndicatorPanelProps> = ({ indicators, symb
       name: 'ATR (14)',
       icon: '🎯',
       value: formatPrice(indicators.atr, symbol),
-      state: `止损 -${formatPrice(indicators.atr * 2, symbol)}`,
+      state: t.indicator.atrStopHint(formatPrice(indicators.atr * 2, symbol)),
       stateColor: 'var(--info)',
       stateBg: 'var(--info-bg)',
-      desc: '建议止损距离（2×ATR）',
+      desc: t.indicator.atrDesc,
     },
     {
       name: 'ADX (14)',
@@ -147,7 +149,7 @@ export const IndicatorPanel: React.FC<IndicatorPanelProps> = ({ indicators, symb
 
   return (
     <div className="card" style={{ padding: '14px 18px' }}>
-      <div className="card-title" style={{ marginBottom: 12 }}>技术指标</div>
+      <div className="card-title" style={{ marginBottom: 12 }}>{t.indicator.title}</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
         {rows.map((row) => (
           <div

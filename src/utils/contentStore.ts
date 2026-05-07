@@ -1,7 +1,12 @@
 /**
- * contentStore — 前端内容配置的 localStorage 持久化
- * key: wyckoff_content
+ * contentStore — 前端内容配置持久化
+ * v2: 主存 Supabase site_config 表（key='site_content'），localStorage 作缓存
  */
+
+import { supabase } from '../lib/supabase';
+
+const LS_KEY = 'wyckoff_content';
+const DB_KEY = 'site_content';
 
 export interface SiteContent {
   hero: {
@@ -19,8 +24,6 @@ export interface SiteContent {
     oneTimePacks: { count: number; price: number; label?: string }[];
   };
 }
-
-const LS_KEY = 'wyckoff_content';
 
 export const DEFAULT_CONTENT: SiteContent = {
   hero: {
@@ -45,6 +48,8 @@ export const DEFAULT_CONTENT: SiteContent = {
   },
 };
 
+// ─── 同步读（优先 localStorage 缓存） ────────────────────────────────────────
+
 export function loadContent(): SiteContent {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -53,11 +58,55 @@ export function loadContent(): SiteContent {
   } catch { return DEFAULT_CONTENT; }
 }
 
+// ─── 异步读（从 Supabase 拉取最新，回写 localStorage） ───────────────────────
+
+export async function fetchContent(): Promise<SiteContent> {
+  try {
+    const { data, error } = await supabase
+      .from('site_config')
+      .select('value')
+      .eq('key', DB_KEY)
+      .single();
+    if (!error && data?.value) {
+      const merged = { ...DEFAULT_CONTENT, ...(data.value as Partial<SiteContent>) };
+      try { localStorage.setItem(LS_KEY, JSON.stringify(merged)); } catch {}
+      return merged;
+    }
+  } catch (e) {
+    console.warn('[contentStore] Supabase 读取失败，降级到 localStorage:', e);
+  }
+  return loadContent();
+}
+
+// ─── 写（同时更新 localStorage + 异步写 Supabase） ───────────────────────────
+
 export function saveContent(content: SiteContent) {
-  localStorage.setItem(LS_KEY, JSON.stringify(content));
+  try { localStorage.setItem(LS_KEY, JSON.stringify(content)); } catch {}
+
+  void supabase
+    .from('site_config')
+    .upsert({ key: DB_KEY, value: content, updated_at: new Date().toISOString() })
+    .then(({ error }) => {
+      if (error) console.error('[contentStore] Supabase 写入失败:', error.message);
+    });
 }
 
 export function savePartialContent(patch: Partial<SiteContent>) {
   const current = loadContent();
   saveContent({ ...current, ...patch });
+}
+
+// ─── 管理员专用：强制写并等待结果 ────────────────────────────────────────────
+
+export async function saveContentAsync(content: SiteContent): Promise<boolean> {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(content)); } catch {}
+
+  const { error } = await supabase
+    .from('site_config')
+    .upsert({ key: DB_KEY, value: content, updated_at: new Date().toISOString() });
+  if (error) {
+    console.error('[contentStore] Supabase 写入失败:', error.message);
+    return false;
+  }
+  return true;
 }

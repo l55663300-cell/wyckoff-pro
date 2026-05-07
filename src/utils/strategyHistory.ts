@@ -1,3 +1,9 @@
+/**
+ * strategyHistory — 策略历史记录
+ * v2: localStorage 主存（快速读写）+ 异步同步 Supabase strategy_history 表
+ */
+
+import { supabase } from '../lib/supabase';
 import { Symbol, Timeframe } from '../types';
 
 export interface StrategyRecord {
@@ -20,19 +26,7 @@ export interface StrategyRecord {
 
 const STORAGE_KEY = 'wyckoff_strategy_history';
 
-export function saveStrategy(record: Omit<StrategyRecord, 'id' | 'timestamp' | 'result'>): void {
-  const history = loadHistory();
-  const newRecord: StrategyRecord = {
-    ...record,
-    id: Date.now().toString(),
-    timestamp: Date.now(),
-    result: 'pending',
-  };
-  history.push(newRecord);
-  // 只保留最近200条
-  const trimmed = history.slice(-200);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-}
+// ─── localStorage 读写 ────────────────────────────────────────────────────────
 
 export function loadHistory(): StrategyRecord[] {
   try {
@@ -43,10 +37,54 @@ export function loadHistory(): StrategyRecord[] {
   }
 }
 
+function _saveHistory(history: StrategyRecord[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+// ─── 写入新记录 ───────────────────────────────────────────────────────────────
+
+export function saveStrategy(
+  record: Omit<StrategyRecord, 'id' | 'timestamp' | 'result'> & { uid?: string },
+): void {
+  const history = loadHistory();
+  const newRecord: StrategyRecord = {
+    ...record,
+    id: Date.now().toString(),
+    timestamp: Date.now(),
+    result: 'pending',
+  };
+  history.push(newRecord);
+  _saveHistory(history.slice(-200));
+
+  // 异步同步到 Supabase（需要传入 uid 才同步）
+  if (record.uid) {
+    void supabase.from('strategy_history').insert({
+      id: newRecord.id,
+      uid: record.uid,
+      symbol: newRecord.symbol,
+      timeframe: newRecord.timeframe,
+      direction: newRecord.direction,
+      probability: newRecord.probability,
+      entry_price: newRecord.entryPrice,
+      stop_loss: newRecord.stopLoss,
+      target1: newRecord.target1,
+      target2: newRecord.target2,
+      target3: newRecord.target3,
+      result: newRecord.result,
+      timestamp: newRecord.timestamp,
+      created_at: new Date(newRecord.timestamp).toISOString(),
+    }).then(({ error }) => {
+      if (error) console.error('[strategyHistory] Supabase 写入失败:', error.message);
+    });
+  }
+}
+
+// ─── 更新结果 ─────────────────────────────────────────────────────────────────
+
 export function updateStrategyResult(
   id: string,
   result: 'win' | 'loss' | 'breakeven',
-  exitPrice: number
+  exitPrice: number,
 ): void {
   const history = loadHistory();
   const record = history.find((r) => r.id === id);
@@ -56,9 +94,59 @@ export function updateStrategyResult(
     record.closeTime = Date.now();
     record.profitPercent = ((exitPrice - record.entryPrice) / record.entryPrice) * 100;
     if (record.direction === 'short') record.profitPercent *= -1;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    _saveHistory(history);
+
+    // 异步更新 Supabase
+    void supabase.from('strategy_history').update({
+      result,
+      exit_price: exitPrice,
+      profit_percent: record.profitPercent,
+      close_time: record.closeTime,
+    }).eq('id', id).then(({ error }) => {
+      if (error) console.error('[strategyHistory] Supabase 更新失败:', error.message);
+    });
   }
 }
+
+// ─── 从 Supabase 加载用户历史（跨设备同步） ──────────────────────────────────
+
+export async function fetchStrategyHistory(uid: string): Promise<StrategyRecord[]> {
+  try {
+    const { data, error } = await supabase
+      .from('strategy_history')
+      .select('*')
+      .eq('uid', uid)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (!error && data && data.length > 0) {
+      const records: StrategyRecord[] = data.map((row: Record<string, unknown>) => ({
+        id: row.id as string,
+        timestamp: Number(row.timestamp),
+        symbol: row.symbol as Symbol,
+        timeframe: row.timeframe as Timeframe,
+        direction: row.direction as 'long' | 'short',
+        probability: Number(row.probability),
+        entryPrice: Number(row.entry_price),
+        stopLoss: Number(row.stop_loss),
+        target1: Number(row.target1),
+        target2: Number(row.target2),
+        target3: Number(row.target3),
+        result: (row.result as StrategyRecord['result']) ?? 'pending',
+        exitPrice: row.exit_price != null ? Number(row.exit_price) : undefined,
+        profitPercent: row.profit_percent != null ? Number(row.profit_percent) : undefined,
+        closeTime: row.close_time != null ? Number(row.close_time) : undefined,
+      }));
+      // 同步到 localStorage
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch {}
+      return records;
+    }
+  } catch (e) {
+    console.warn('[strategyHistory] fetchStrategyHistory 失败，降级到 localStorage:', e);
+  }
+  return loadHistory();
+}
+
+// ─── 统计分析 ─────────────────────────────────────────────────────────────────
 
 export function calculateWinRate(filter?: {
   symbol?: Symbol;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { LoadingStep } from '../types';
 import { Check } from 'lucide-react';
+import { useT } from '../i18n';
 
 interface LoadingOverlayProps {
   steps: LoadingStep[];
@@ -8,6 +9,7 @@ interface LoadingOverlayProps {
 }
 
 export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ steps, symbol }) => {
+  const t = useT();
   const done = steps.filter((s) => s.done).length;
   const total = steps.length;
   const pct = Math.round((done / total) * 100);
@@ -19,9 +21,9 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ steps, symbol })
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
           <div className="text-5xl mb-4" style={{ filter: 'drop-shadow(0 0 20px rgba(0,212,170,0.5))' }}>🦞</div>
-          <div className="font-bold text-2xl text-white" style={{ letterSpacing: '-0.02em' }}>威科夫Pro</div>
+          <div className="font-bold text-2xl text-white" style={{ letterSpacing: '-0.02em' }}>{t.loading.brandName}</div>
           <div style={{ color: '#5C6478', fontSize: '13px', marginTop: '4px', letterSpacing: '0.06em' }}>
-            正在深度分析 {symbol}...
+            {t.loading.analyzing(symbol)}
           </div>
         </div>
 
@@ -29,7 +31,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ steps, symbol })
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span style={{ color: '#A0A8B8', fontSize: '13px' }}>
-              {current?.label || '完成！'}
+              {current?.label || t.loading.done}
             </span>
             <span className="font-mono font-bold text-base" style={{ color: '#00D4AA' }}>{pct}%</span>
           </div>
@@ -39,7 +41,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ steps, symbol })
               style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #00A878, #00D4AA)', boxShadow: '0 0 12px rgba(0,212,170,0.4)' }}
             />
           </div>
-          <div style={{ color: '#5C6478', fontSize: '11px', marginTop: '4px' }}>{done} / {total} 步已完成</div>
+          <div style={{ color: '#5C6478', fontSize: '11px', marginTop: '4px' }}>{t.loading.progress(done, total)}</div>
         </div>
 
         {/* Steps grid */}

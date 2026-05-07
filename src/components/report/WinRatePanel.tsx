@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Trophy, TrendingUp, TrendingDown, BookOpen } from 'lucide-react';
 import { calculateWinRate, loadHistory, updateStrategyResult } from '../../utils/strategyHistory';
 import { Symbol, Timeframe } from '../../types';
+import { useT } from '../../i18n';
 
 interface Props {
   symbol: Symbol;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function WinRatePanel({ symbol, timeframe }: Props) {
+  const t = useT();
   const [refresh, setRefresh] = useState(0);
 
   const overall = calculateWinRate();
@@ -26,6 +28,8 @@ export function WinRatePanel({ symbol, timeframe }: Props) {
   const winColor = (rate: number) =>
     rate >= 60 ? '#02C076' : rate >= 45 ? '#F0B90B' : '#F6465D';
 
+  const symbolShort = symbol.replace('USDT', '');
+
   return (
     <div
       className="rounded-2xl overflow-hidden"
@@ -37,7 +41,7 @@ export function WinRatePanel({ symbol, timeframe }: Props) {
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}
       >
         <Trophy size={14} style={{ color: '#F0B90B' }} />
-        <span className="font-bold text-sm text-white">策略胜率</span>
+        <span className="font-bold text-sm text-white">{t.winrate.title}</span>
       </div>
 
       <div className="p-4 space-y-3">
@@ -46,7 +50,7 @@ export function WinRatePanel({ symbol, timeframe }: Props) {
           className="p-3 rounded-xl"
           style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
         >
-          <div style={{ color: '#5C6478', fontSize: '10px', marginBottom: '6px' }}>全局累计</div>
+          <div style={{ color: '#5C6478', fontSize: '10px', marginBottom: '6px' }}>{t.winrate.globalLabel}</div>
           <div className="flex items-end justify-between">
             <div
               className="font-mono font-bold text-3xl"
@@ -56,13 +60,13 @@ export function WinRatePanel({ symbol, timeframe }: Props) {
             </div>
             <div className="text-right">
               <div style={{ fontSize: '11px', color: '#A0A8B8' }}>
-                {overall.wins}胜 / {overall.losses}负
+                {t.winrate.wins(overall.wins)} / {t.winrate.losses(overall.losses)}
               </div>
               <div
                 className="font-mono text-xs"
                 style={{ color: overall.avgProfit >= 0 ? '#02C076' : '#F6465D', marginTop: '2px' }}
               >
-                均盈 {overall.avgProfit >= 0 ? '+' : ''}{overall.avgProfit.toFixed(1)}%
+                {t.winrate.avgProfit} {overall.avgProfit >= 0 ? '+' : ''}{overall.avgProfit.toFixed(1)}%
               </div>
             </div>
           </div>
@@ -85,7 +89,7 @@ export function WinRatePanel({ symbol, timeframe }: Props) {
           style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
         >
           <div style={{ color: '#5C6478', fontSize: '10px', marginBottom: '6px' }}>
-            {symbol.replace('USDT', '')} · {timeframe} · 近30天
+            {t.winrate.recentLabel(symbolShort, timeframe)}
           </div>
           <div className="flex items-end justify-between">
             <div
@@ -96,13 +100,13 @@ export function WinRatePanel({ symbol, timeframe }: Props) {
             </div>
             <div className="text-right">
               <div style={{ fontSize: '11px', color: '#A0A8B8' }}>
-                {current.wins}胜 / {current.losses}负
+                {t.winrate.wins(current.wins)} / {t.winrate.losses(current.losses)}
               </div>
               <div
                 className="font-mono text-xs"
                 style={{ color: current.avgProfit >= 0 ? '#02C076' : '#F6465D', marginTop: '2px' }}
               >
-                均盈 {current.avgProfit >= 0 ? '+' : ''}{current.avgProfit.toFixed(1)}%
+                {t.winrate.avgProfit} {current.avgProfit >= 0 ? '+' : ''}{current.avgProfit.toFixed(1)}%
               </div>
             </div>
           </div>
@@ -116,7 +120,7 @@ export function WinRatePanel({ symbol, timeframe }: Props) {
               style={{ color: '#5C6478', fontSize: '10px' }}
             >
               <BookOpen size={10} />
-              标记实战结果
+              {t.winrate.markResult}
             </div>
             <div className="space-y-1.5">
               {pending.map((r) => (
@@ -127,7 +131,7 @@ export function WinRatePanel({ symbol, timeframe }: Props) {
                 >
                   <div className="flex-1 min-w-0">
                     <div style={{ color: r.direction === 'long' ? '#02C076' : '#F6465D', fontSize: '11px', fontWeight: '600' }}>
-                      {r.direction === 'long' ? '↑ 多' : '↓ 空'} {r.symbol.replace('USDT', '')} {r.timeframe}
+                      {r.direction === 'long' ? t.winrate.long(r.symbol.replace('USDT', ''), r.timeframe) : t.winrate.short(r.symbol.replace('USDT', ''), r.timeframe)}
                     </div>
                     <div className="font-mono" style={{ color: '#5C6478', fontSize: '10px' }}>
                       ${r.entryPrice.toFixed(2)}
@@ -156,9 +160,9 @@ export function WinRatePanel({ symbol, timeframe }: Props) {
         {overall.totalTrades === 0 && (
           <div
             className="text-center py-3 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.02)', color: '#5C6478', fontSize: '11px' }}
+            style={{ background: 'rgba(255,255,255,0.02)', color: '#5C6478', fontSize: '11px', whiteSpace: 'pre-line' }}
           >
-            💡 运行分析后自动记录信号<br />标记结果即可统计胜率
+            {t.winrate.noData}
           </div>
         )}
       </div>

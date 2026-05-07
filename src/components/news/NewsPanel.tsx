@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { NewsItem } from '../../types';
 import { fetchNewsWithSentiment, analyzeNewsSentiment, NewsSentimentResult, CategorizedNewsItem } from '../../api/newsApi';
+import { useT, getLang } from '../../i18n';
 
 interface NewsPanelProps {
   news?: CategorizedNewsItem[];
@@ -23,16 +24,11 @@ const EMPTY_SENTIMENT: NewsSentimentResult = {
   totalAnalyzed: 0,
 };
 
-const CATEGORY_META: Record<string, { label: string; color: string; bg: string }> = {
-  macro:      { label: '宏观', color: '#7c3aed', bg: '#f5f3ff' },
-  blockchain: { label: '区块链', color: '#0369a1', bg: '#f0f9ff' },
-  crypto:     { label: '加密', color: '#d97706', bg: '#fffbeb' },
-};
-
 /** 手动刷新冷却时间：60秒 */
 const MANUAL_COOLDOWN_MS = 60 * 1000;
 
 export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: propAllNews, autoFetch = true }) => {
+  const t = useT();
   const [displayNews, setDisplayNews] = useState<CategorizedNewsItem[]>((propNews as CategorizedNewsItem[]) ?? []);
   const [sentiment, setSentiment] = useState<NewsSentimentResult>(EMPTY_SENTIMENT);
   const [fetching, setFetching] = useState(false);
@@ -41,6 +37,12 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // 记录最后一次刷新时间
   const lastFetchRef = useRef<number>(0);
+
+  const CATEGORY_META: Record<string, { label: string; color: string; bg: string }> = {
+    macro:      { label: t.news.catMacro,      color: '#7c3aed', bg: '#f5f3ff' },
+    blockchain: { label: t.news.catBlockchain, color: '#0369a1', bg: '#f0f9ff' },
+    crypto:     { label: t.news.catCrypto,     color: '#d97706', bg: '#fffbeb' },
+  };
 
   const doFetch = useCallback(async () => {
     setFetching(true);
@@ -97,6 +99,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
 
   const vs = VERDICT_STYLE[sentiment.verdict];
   const total = sentiment.bullish + sentiment.bearish + sentiment.neutral || 1;
+  const locale = getLang() === 'en' ? 'en-US' : 'zh-CN';
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -105,13 +108,13 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '12px 14px 0', flexShrink: 0,
       }}>
-        <div className="card-title" style={{ flex: 1, fontSize: 13 }}>📡 资讯 &amp; 舆情</div>
+        <div className="card-title" style={{ flex: 1, fontSize: 13 }}>{t.news.title}</div>
 
         {/* 手动刷新按钮 */}
         <button
           onClick={handleManualRefresh}
           disabled={cooldown > 0 || fetching}
-          title={cooldown > 0 ? `${cooldown}s 后可刷新` : '刷新新闻（不消耗积分）'}
+          title={cooldown > 0 ? t.news.cooldownHint(cooldown) : t.news.refreshTitle}
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '4px 8px', borderRadius: 6, fontSize: 11,
@@ -123,10 +126,10 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
           }}
         >
           <RefreshCw size={10} className={fetching ? 'spin-slow' : ''} />
-          {cooldown > 0 ? `${cooldown}s` : '刷新'}
+          {cooldown > 0 ? `${cooldown}s` : t.news.refresh}
         </button>
 
-        <span style={{ fontSize: 10, color: 'var(--t4)' }}>30分钟自动刷新</span>
+        <span style={{ fontSize: 10, color: 'var(--t4)' }}>{t.news.autoRefresh}</span>
       </div>
 
       {/* 舆情综合结论 */}
@@ -145,7 +148,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
             <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 16, color: vs.color, lineHeight: 1 }}>
               {sentiment.bullScore > sentiment.bearScore ? `+${sentiment.bullScore - sentiment.bearScore}` : sentiment.bullScore - sentiment.bearScore}
             </div>
-            <div style={{ fontSize: 9, color: 'var(--t4)', marginTop: 2 }}>加权分差</div>
+            <div style={{ fontSize: 9, color: 'var(--t4)', marginTop: 2 }}>{t.news.weightedDiff}</div>
           </div>
         </div>
 
@@ -153,15 +156,15 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
         <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
           <div style={{ flex: 1, padding: '5px 8px', borderRadius: 8, background: '#ecfdf5', border: '1px solid #a7f3d0', textAlign: 'center' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#059669', fontFamily: 'monospace' }}>{sentiment.bullish}</div>
-            <div style={{ fontSize: 9, color: '#059669' }}>利多</div>
+            <div style={{ fontSize: 9, color: '#059669' }}>{t.news.bullish}</div>
           </div>
           <div style={{ flex: 1, padding: '5px 8px', borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', textAlign: 'center' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', fontFamily: 'monospace' }}>{sentiment.neutral}</div>
-            <div style={{ fontSize: 9, color: '#94a3b8' }}>中性</div>
+            <div style={{ fontSize: 9, color: '#94a3b8' }}>{t.news.neutral}</div>
           </div>
           <div style={{ flex: 1, padding: '5px 8px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fca5a5', textAlign: 'center' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', fontFamily: 'monospace' }}>{sentiment.bearish}</div>
-            <div style={{ fontSize: 9, color: '#dc2626' }}>利空</div>
+            <div style={{ fontSize: 9, color: '#dc2626' }}>{t.news.bearish}</div>
           </div>
         </div>
 
@@ -176,9 +179,9 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
 
         {/* 分隔标题 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '10px 2px 0' }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)' }}>精选资讯</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)' }}>{t.news.featured}</span>
           <div style={{ display: 'flex', gap: 4 }}>
-            {['macro', 'blockchain', 'crypto'].map(cat => {
+            {(['macro', 'blockchain', 'crypto'] as const).map(cat => {
               const m = CATEGORY_META[cat];
               return (
                 <span key={cat} style={{
@@ -200,7 +203,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
         ) : displayNews.length === 0 ? (
           <div style={{ padding: '24px', textAlign: 'center', color: 'var(--t3)', fontSize: 12 }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>📡</div>
-            暂无最新新闻
+            {t.news.empty}
             <br />
             <button
               onClick={handleManualRefresh}
@@ -210,7 +213,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
                 border: '1px solid var(--border)', background: 'transparent',
                 color: 'var(--primary)', fontSize: 12, cursor: 'pointer',
               }}
-            >点击刷新</button>
+            >{t.news.clickRefresh}</button>
           </div>
         ) : (
           displayNews.slice(0, 6).map((item, i) => {
@@ -263,7 +266,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ news: propNews, allNews: p
                     <span style={{ fontSize: 10, color: 'var(--t3)' }}>{item.source}</span>
                     {item.pubDate && (
                       <span style={{ fontSize: 10, color: 'var(--t4)' }}>
-                        {new Date(item.pubDate).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(item.pubDate).toLocaleString(locale, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>

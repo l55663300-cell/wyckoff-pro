@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { loadNoticesFromDB, markAllRead, type Notice } from '../../utils/noticeStore';
+import { useT, getLang } from '../../i18n';
 
 interface Props {
   onClose: () => void;
@@ -15,6 +16,7 @@ const TYPE_ICON: Record<string, { icon: string; bg: string }> = {
 };
 
 export function NotifPanel({ onClose, onGoRecharge, uid }: Props) {
+  const t = useT();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,26 +46,27 @@ export function NotifPanel({ onClose, onGoRecharge, uid }: Props) {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
         <span style={{ fontSize: 14, fontWeight: 700 }}>
-          消息通知 {unreadCount > 0 && <span style={{ fontSize: 11, background: 'var(--red)', color: '#fff', borderRadius: 20, padding: '1px 6px', marginLeft: 4 }}>{unreadCount}</span>}
+          {t.notif.title} {unreadCount > 0 && <span style={{ fontSize: 11, background: 'var(--red)', color: '#fff', borderRadius: 20, padding: '1px 6px', marginLeft: 4 }}>{unreadCount}</span>}
         </span>
-        <span style={{ fontSize: 12, color: 'var(--primary)', cursor: 'pointer' }} onClick={handleMarkAllRead}>全部已读</span>
+        <span style={{ fontSize: 12, color: 'var(--primary)', cursor: 'pointer' }} onClick={handleMarkAllRead}>{t.notif.markAllRead}</span>
       </div>
 
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--t3)', fontSize: 13 }}>加载中...</div>
+          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--t3)', fontSize: 13 }}>{t.notif.loading}</div>
         ) : notices.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--t3)', fontSize: 13 }}>暂无通知</div>
+          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--t3)', fontSize: 13 }}>{t.notif.empty}</div>
         ) : notices.map(n => {
           const { icon, bg } = TYPE_ICON[n.type] ?? TYPE_ICON.announcement;
+          const locale = getLang() === 'en' ? 'en-US' : 'zh-CN';
           const fmtTime = (iso: string) => {
             try {
               const d = new Date(iso);
               const now = new Date();
               const isToday = d.toDateString() === now.toDateString();
               return isToday
-                ? '今天 ' + d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-                : d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+                ? t.notif.today + ' ' + d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+                : d.toLocaleDateString(locale, { month: '2-digit', day: '2-digit' });
             } catch { return iso; }
           };
           return (

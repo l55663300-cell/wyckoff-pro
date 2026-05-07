@@ -1,6 +1,7 @@
 /**
  * queryStore — AI 查询记录 + 收藏币种 + 邀请统计
- * v3: 查询记录同时写 localStorage（用户端快速读）和 Supabase（管理员后台跨设备查看）
+ * v4: 查询记录 localStorage + Supabase 双写；
+ *     收藏币种 / 邀请统计 localStorage 缓存 + Supabase 主存，跨设备同步
  */
 
 import { supabase } from '../lib/supabase';
@@ -163,7 +164,7 @@ export function calcAccuracy(uid: string): AccuracyStats {
   return { longTotal, longWin, shortTotal, shortWin, labeled, unlabeled, overall };
 }
 
-// ─── 收藏币种（按用户隔离） ───────────────────────────────────────────────────
+// ─── 收藏币种（按用户隔离，localStorage 缓存 + Supabase 主存） ───────────────
 
 function favKey(uid: string) {
   return `wyckoff_fav_${uid}`;
@@ -176,23 +177,53 @@ export function loadFavCoins(uid: string): string[] {
   } catch { return []; }
 }
 
+/** 从 Supabase 加载收藏币种并同步到 localStorage */
+export async function fetchFavCoins(uid: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('user_fav_coins')
+      .select('coins')
+      .eq('uid', uid)
+      .single();
+    if (!error && data?.coins) {
+      const coins = data.coins as string[];
+      try { localStorage.setItem(favKey(uid), JSON.stringify(coins)); } catch {}
+      return coins;
+    }
+  } catch (e) {
+    console.warn('[queryStore] fetchFavCoins 失败，降级到 localStorage:', e);
+  }
+  return loadFavCoins(uid);
+}
+
+function _writeFavCoins(uid: string, coins: string[]) {
+  try { localStorage.setItem(favKey(uid), JSON.stringify(coins)); } catch {}
+  // 异步写 Supabase
+  void supabase
+    .from('user_fav_coins')
+    .upsert({ uid, coins, updated_at: new Date().toISOString() })
+    .then(({ error }) => {
+      if (error) console.error('[queryStore] 收藏写 Supabase 失败:', error.message);
+    });
+}
+
 export function saveFavCoins(uid: string, coins: string[]) {
-  localStorage.setItem(favKey(uid), JSON.stringify(coins));
+  _writeFavCoins(uid, coins);
 }
 
 export function addFavCoin(uid: string, coin: string) {
   const coins = loadFavCoins(uid);
   if (!coins.includes(coin)) {
-    coins.unshift(coin);
-    saveFavCoins(uid, coins.slice(0, 20));
+    const next = [coin, ...coins].slice(0, 20);
+    _writeFavCoins(uid, next);
   }
 }
 
 export function removeFavCoin(uid: string, coin: string) {
-  saveFavCoins(uid, loadFavCoins(uid).filter(c => c !== coin));
+  _writeFavCoins(uid, loadFavCoins(uid).filter(c => c !== coin));
 }
 
-// ─── 邀请统计（按用户隔离） ───────────────────────────────────────────────────
+// ─── 邀请统计（按用户隔离，localStorage 缓存 + Supabase 主存） ───────────────
 
 export interface InviteRecord {
   maskedEmail: string;
@@ -220,8 +251,49 @@ export function loadInviteStats(uid: string): InviteStats {
   return { totalInvited: 0, totalPaid: 0, totalReward: 0, records: [] };
 }
 
+/** 从 Supabase 加载邀请统计并同步到 localStorage */
+export async function fetchInviteStats(uid: string): Promise<InviteStats> {
+  try {
+    const { data, error } = await supabase
+      .from('invite_records')
+      .select('total_invited, total_paid, total_reward, records')
+      .eq('uid', uid)
+      .single();
+    if (!error && data) {
+      const stats: InviteStats = {
+        totalInvited: Number(data.total_invited),
+        totalPaid: Number(data.total_paid),
+        totalReward: Number(data.total_reward),
+        records: (data.records as InviteRecord[]) ?? [],
+      };
+      try { localStorage.setItem(inviteKey(uid), JSON.stringify(stats)); } catch {}
+      return stats;
+    }
+  } catch (e) {
+    console.warn('[queryStore] fetchInviteStats 失败，降级到 localStorage:', e);
+  }
+  return loadInviteStats(uid);
+}
+
+function _writeInviteStats(uid: string, stats: InviteStats) {
+  try { localStorage.setItem(inviteKey(uid), JSON.stringify(stats)); } catch {}
+  void supabase
+    .from('invite_records')
+    .upsert({
+      uid,
+      total_invited: stats.totalInvited,
+      total_paid: stats.totalPaid,
+      total_reward: stats.totalReward,
+      records: stats.records,
+      updated_at: new Date().toISOString(),
+    })
+    .then(({ error }) => {
+      if (error) console.error('[queryStore] 邀请统计写 Supabase 失败:', error.message);
+    });
+}
+
 export function saveInviteStats(uid: string, stats: InviteStats) {
-  localStorage.setItem(inviteKey(uid), JSON.stringify(stats));
+  _writeInviteStats(uid, stats);
 }
 
 function maskEmail(email: string): string {
@@ -243,7 +315,7 @@ export function recordInvite(inviterUid: string, inviteeEmail: string) {
     rewardCredits: 0,
   });
   stats.totalInvited = stats.records.length;
-  saveInviteStats(inviterUid, stats);
+  _writeInviteStats(inviterUid, stats);
 }
 
 /** 被邀请人完成首次充值后调用，给邀请人发放奖励 */
@@ -256,6 +328,6 @@ export function rewardInviter(inviterUid: string, inviteeEmail: string, rewardAm
     stats.records[idx].rewardCredits = rewardAmount;
     stats.totalPaid = stats.records.filter(r => r.hasPaid).length;
     stats.totalReward = stats.records.reduce((s, r) => s + r.rewardCredits, 0);
-    saveInviteStats(inviterUid, stats);
+    _writeInviteStats(inviterUid, stats);
   }
 }

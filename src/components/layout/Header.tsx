@@ -3,6 +3,7 @@ import { RefreshCw, Activity, Bell } from 'lucide-react';
 import { Timeframe } from '../../types';
 import { formatPrice, formatPercent } from '../../utils/formatters';
 import { RefreshCountdown } from '../RefreshCountdown';
+import { useT, getLang } from '../../i18n';
 
 const TIMEFRAMES: { key: Timeframe; label: string; desc: string }[] = [
   { key: '1d', label: '日线', desc: '中线' },
@@ -33,7 +34,9 @@ export const Header: React.FC<HeaderProps> = ({
   price, priceChange24h, loading, onAnalyze, lastUpdated,
   autoRefresh, onToggleAutoRefresh, alertEnabled, onOpenAlert,
 }) => {
+  const t = useT();
   const isPositive = priceChange24h >= 0;
+  const locale = getLang() === 'en' ? 'en-US' : 'zh-CN';
 
   return (
     <header
@@ -106,9 +109,9 @@ export const Header: React.FC<HeaderProps> = ({
           }}
         />
         <span style={{ color: '#5C6478', fontSize: 11 }}>
-          {loading ? '分析中...' : lastUpdated
-            ? new Date(lastUpdated).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) + ' 更新'
-            : '未分析'}
+          {loading ? t.header.analyzing : lastUpdated
+            ? new Date(lastUpdated).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) + ' ' + t.header.updated
+            : t.header.notAnalyzed}
         </span>
       </div>
 
@@ -123,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
         }
       >
         <Activity size={12} />
-        <span>{autoRefresh ? '自动' : '手动'}</span>
+        <span>{autoRefresh ? t.header.auto : t.header.manual}</span>
       </button>
 
       {/* 微信推送 */}
@@ -137,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({
         }
       >
         <Bell size={12} />
-        <span>推送</span>
+        <span>{t.header.push}</span>
         {alertEnabled && <span className="w-1.5 h-1.5 rounded-full bg-green-400" style={{ animation: 'badge-pulse 2s infinite' }} />}
       </button>
 
@@ -153,7 +156,7 @@ export const Header: React.FC<HeaderProps> = ({
         }
       >
         <RefreshCw size={13} className={loading ? 'spin-slow' : ''} />
-        {loading ? '分析中...' : '一键分析'}
+        {loading ? t.header.analyzing : t.header.analyzeBtn}
       </button>
     </header>
   );

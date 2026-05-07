@@ -1,27 +1,30 @@
 import React from 'react';
 import { SentimentData } from '../../types';
 import { formatFundingRate, getFearGreedColor } from '../../utils/formatters';
+import { useT } from '../../i18n';
 
 interface SentimentPanelProps {
   sentiment: SentimentData;
 }
 
-function getFGInfo(value: number) {
-  if (value < 25) return { label: '极度恐慌', color: '#059669' };
-  if (value < 45) return { label: '市场恐慌', color: '#059669' };
-  if (value < 55) return { label: '情绪中性', color: '#94a3b8' };
-  if (value < 75) return { label: '市场贪婪', color: '#d97706' };
-  return { label: '极度贪婪', color: '#dc2626' };
-}
-
 export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment }) => {
+  const t = useT();
+
+  function getFGInfo(value: number) {
+    if (value < 25) return { label: t.sentiment.extremeFear, color: '#059669' };
+    if (value < 45) return { label: t.sentiment.fear,        color: '#059669' };
+    if (value < 55) return { label: t.sentiment.neutral,     color: '#94a3b8' };
+    if (value < 75) return { label: t.sentiment.greed,       color: '#d97706' };
+    return           { label: t.sentiment.extremeGreed,       color: '#dc2626' };
+  }
+
   const fgColor = getFearGreedColor(sentiment.fearGreed);
   const fgInfo  = getFGInfo(sentiment.fearGreed);
 
   const frIsHot  = sentiment.fundingRate > 0.001;
   const frIsCold = sentiment.fundingRate < -0.0005;
   const frColor  = frIsHot ? 'var(--bear)' : frIsCold ? 'var(--bull)' : 'var(--t3)';
-  const frLabel  = frIsHot ? '多头过热' : frIsCold ? '空头过热' : '费率均衡';
+  const frLabel  = frIsHot ? t.sentiment.longOverheat : frIsCold ? t.sentiment.shortOverheat : t.sentiment.rateBalance;
   const frBg     = frIsHot ? 'var(--bear-bg)' : frIsCold ? 'var(--bull-bg)' : 'var(--bg-subtle)';
 
   // Gauge arc
@@ -31,7 +34,7 @@ export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment }) => 
 
   return (
     <div className="card" style={{ padding: '14px 18px' }}>
-      <div className="card-title" style={{ marginBottom: 12 }}>市场情绪</div>
+      <div className="card-title" style={{ marginBottom: 12 }}>{t.sentiment.title}</div>
 
       {/* Gauge */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 12 }}>
@@ -51,7 +54,7 @@ export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment }) => 
         </div>
         <div style={{ textAlign: 'center', marginTop: -4 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: fgInfo.color }}>{fgInfo.label}</div>
-          <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>昨日 {sentiment.fearGreedPrev}</div>
+          <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>{t.sentiment.yesterday(sentiment.fearGreedPrev)}</div>
         </div>
         {Math.abs(sentiment.fearGreedChange) >= 15 && (
           <div className="badge badge-warn badge-alert" style={{ marginTop: 6, fontSize: 11 }}>
@@ -67,7 +70,7 @@ export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment }) => 
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <div>
-            <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 2 }}>资金费率</div>
+            <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 2 }}>{t.sentiment.fundingRate}</div>
             <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 16, color: frColor }}>
               {formatFundingRate(sentiment.fundingRate)}
             </div>
@@ -86,8 +89,8 @@ export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment }) => 
           <div className="absolute top-0 bottom-0 w-px" style={{ left: '50%', background: '#e2e8f0' }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--t4)' }}>
-          <span style={{ color: 'var(--bull)' }}>空头获益</span>
-          <span style={{ color: 'var(--bear)' }}>多头获益</span>
+          <span style={{ color: 'var(--bull)' }}>{t.sentiment.shortProfit}</span>
+          <span style={{ color: 'var(--bear)' }}>{t.sentiment.longProfit}</span>
         </div>
       </div>
     </div>

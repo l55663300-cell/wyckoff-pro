@@ -21,9 +21,9 @@ export default function LandingPage({ onOpenLogin }: { onOpenLogin?: () => void 
 
   // 静态后备套餐（数据库为空时展示）
   const staticPlans = [
-    { id: 'basic', name: t.landing.featuresList[0] ? '基础版' : 'Basic', priceUsd: 68, durationDays: 30, dailyLimit: 30, popular: false, perks: ['每日30次AI分析', '500+币种支持', '全功能访问', '实时行情数据'], cycle: 'monthly' as const },
-    { id: 'pro', name: '专业版', priceUsd: 168, durationDays: 30, dailyLimit: 100, popular: true, perks: ['每日100次AI分析', '500+币种支持', '全功能访问', '优先响应速度', '策略历史记录'], cycle: 'monthly' as const },
-    { id: 'elite', name: '旗舰版', priceUsd: 388, durationDays: 90, dailyLimit: 200, popular: false, perks: ['每日200次AI分析', '500+币种支持', '最快响应速度', '邮件信号推送', '专属客服支持'], cycle: 'quarterly' as const },
+    { id: 'basic', name: t.landing.staticPlanBasicName, priceUsd: 68, durationDays: 30, dailyLimit: 30, popular: false, perks: t.landing.staticPlanBasicPerks, cycle: 'monthly' as const },
+    { id: 'pro', name: t.landing.staticPlanProName, priceUsd: 168, durationDays: 30, dailyLimit: 100, popular: true, perks: t.landing.staticPlanProPerks, cycle: 'monthly' as const },
+    { id: 'elite', name: t.landing.staticPlanEliteName, priceUsd: 388, durationDays: 90, dailyLimit: 200, popular: false, perks: t.landing.staticPlanElitePerks, cycle: 'quarterly' as const },
   ];
   const displayPlans = plans.length > 0 ? plans : staticPlans;
 

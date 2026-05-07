@@ -1,5 +1,6 @@
 import React from 'react';
 import { UserInfo } from '../../context/AppContext';
+import { useT } from '../../i18n';
 
 interface Props {
   user: UserInfo | null;
@@ -12,11 +13,12 @@ interface Props {
 }
 
 export function AvatarDropdown({ user, onClose, onUser, onRecharge, onFeedback, onAdmin, onLogout }: Props) {
+  const t = useT();
   const menuItems = [
-    { icon: '👤', label: '个人中心', action: onUser },
-    { icon: '💳', label: '充值次数', action: onRecharge },
-    { icon: '💬', label: '意见反馈', action: onFeedback },
-    ...(user?.isAdmin && onAdmin ? [{ icon: '⚙️', label: '后台管理', action: onAdmin }] : []),
+    { icon: '👤', label: t.avatar.profile, action: onUser },
+    { icon: '💳', label: t.avatar.recharge, action: onRecharge },
+    { icon: '💬', label: t.avatar.feedback, action: onFeedback },
+    ...(user?.isAdmin && onAdmin ? [{ icon: '⚙️', label: t.avatar.admin, action: onAdmin }] : []),
   ];
 
   return (
@@ -27,7 +29,7 @@ export function AvatarDropdown({ user, onClose, onUser, onRecharge, onFeedback, 
       zIndex: 2000, overflow: 'hidden',
     }}>
       <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{user?.name ?? '用户'}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{user?.name ?? t.avatar.defaultName}</div>
         <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{user?.email}</div>
       </div>
       {menuItems.map(item => (
@@ -50,7 +52,7 @@ export function AvatarDropdown({ user, onClose, onUser, onRecharge, onFeedback, 
         onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,.08)')}
         onMouseLeave={e => (e.currentTarget.style.background = '')}
       >
-        🚪 退出登录
+        🚪 {t.avatar.logout}
       </div>
     </div>
   );

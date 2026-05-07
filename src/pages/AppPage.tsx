@@ -19,7 +19,7 @@ import { CreditsModal } from '../components/modals/CreditsModal';
 import { NotifPanel } from '../components/modals/NotifPanel';
 import { AvatarDropdown } from '../components/modals/AvatarDropdown';
 import { addQueryRecord } from '../utils/queryStore';
-import { addFavCoin, removeFavCoin, loadFavCoins } from '../utils/queryStore';
+import { addFavCoin, removeFavCoin, loadFavCoins, fetchFavCoins } from '../utils/queryStore';
 import { loadContent } from '../utils/contentStore';
 import { useToast } from '../components/Toast';
 import { useT, toggleLang } from '../i18n';
@@ -194,8 +194,13 @@ export default function AppPage() {
   }, []);
   // 指标栏折叠（小屏时可隐藏）
   const [indicatorExpanded, setIndicatorExpanded] = useState(true);
-  // 收藏币种
+  // 收藏币种（先用 localStorage 初始化，再异步从 Supabase 同步最新）
   const [favCoins, setFavCoins] = useState<string[]>(() => user ? loadFavCoins(user.uid) : []);
+  useEffect(() => {
+    if (user) {
+      fetchFavCoins(user.uid).then(coins => setFavCoins(coins));
+    }
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
   // 是否显示搜索候选下拉
   const [showSymSuggestions, setShowSymSuggestions] = useState(false);
   // 新手引导蒙版（第一次登录后触发）
@@ -308,7 +313,7 @@ export default function AppPage() {
   // 分析完成后写查询记录
   useEffect(() => {
     if (!result || !user) return;
-    const dir = result.scoring.direction === 'long' ? '▲ 做多' : result.scoring.direction === 'short' ? '▼ 做空' : '◆ 观望';
+    const dir = result.scoring.direction === 'long' ? t.report.dirLong : result.scoring.direction === 'short' ? t.report.dirShort : t.report.dirNeutral;
     addQueryRecord({
       uid: user.uid,
       email: user.email,
@@ -382,7 +387,7 @@ export default function AppPage() {
         result.sentiment.fearGreed, result.sentiment.fearGreedLabel,
       );
       sendWechatPush(pushConfig, title, body).then((res) => {
-        setPushStatus(res.ok ? '✅ 微信推送已发送' : `⚠️ 推送失败: ${res.msg}`);
+        setPushStatus(res.ok ? t.appPage.pushEnabled : t.appPage.pushFailed(res.msg ?? ''));
         setTimeout(() => setPushStatus(null), 5000);
       });
     }
@@ -409,7 +414,7 @@ export default function AppPage() {
         }),
       }).then(r => {
         if (r.ok) {
-          setPushStatus(prev => prev ? prev + ' · ✉️ 邮件已发送' : '✉️ 信号邮件已发送');
+          setPushStatus(prev => prev ? t.appPage.emailAppended(prev) : t.appPage.emailSent);
           setTimeout(() => setPushStatus(null), 5000);
         }
       }).catch(() => {});
@@ -429,9 +434,9 @@ export default function AppPage() {
   const handleAddSym = useCallback(() => {
     const sym = symSearch.trim().toUpperCase();
     if (!sym) return;
-    if (/[\u4e00-\u9fa5]/.test(sym)) { setSymInputErr('不支持中文'); return; }
+    if (/[\u4e00-\u9fa5]/.test(sym)) { setSymInputErr(t.appPage.searchNoSupport); return; }
     const full = sym.endsWith('USDT') ? sym : sym + 'USDT';
-    if (watchlist.includes(full)) { setSymInputErr('已在列表'); return; }
+    if (watchlist.includes(full)) { setSymInputErr(t.appPage.searchAlreadyIn(full)); return; }
     const next = [...watchlist, full];
     setWatchlist(next); saveWatchlist(next);
     setSymSearch(''); setSymInputErr('');
@@ -516,7 +521,7 @@ export default function AppPage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--primary)', cursor: 'pointer' }}
               onClick={() => navigate(user ? 'app' : 'landing')}
-              title="返回首页"
+              title={t.appPage.sidebarTitle}
             >
               🦞 AI威科夫Pro
             </div>
@@ -539,7 +544,7 @@ export default function AppPage() {
                 (e.target as HTMLInputElement).style.borderColor = 'var(--border)';
                 setTimeout(() => setShowSymSuggestions(false), 150);
               }}
-              placeholder="搜索或输入币种代码..."
+              placeholder={t.appPage.sidebarSearch}
               style={{
                 width: '100%', padding: '7px 10px', borderRadius: 8, boxSizing: 'border-box',
                 background: 'var(--bg3)', border: '1px solid var(--border)',
@@ -560,11 +565,11 @@ export default function AppPage() {
                   boxShadow: '0 4px 16px rgba(0,0,0,0.3)', overflow: 'hidden',
                 }}>
                   {hasChinese ? (
-                    <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--red)' }}>⚠ 不支持中文，请输入如 BTCUSDT 或 BTC</div>
+                    <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--red)' }}>⚠ {t.appPage.searchNoSupport}</div>
                   ) : alreadyIn ? (
-                    <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--t3)' }}>"{full}" 已在列表中</div>
+                    <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--t3)' }}>{t.appPage.searchAlreadyIn(full)}</div>
                   ) : !isValidFormat ? (
-                    <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--t3)' }}>请输入正确格式，如 BTC 或 BTCUSDT</div>
+                    <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--t3)' }}>{t.appPage.searchInvalidFormat}</div>
                   ) : (
                     <div
                       onClick={() => { handleAddSym(); setShowSymSuggestions(false); }}
@@ -587,7 +592,7 @@ export default function AppPage() {
 
           {/* 币种列表 */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 6px' }}>
-            <div style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '4px 8px' }}>自选列表</div>
+            <div style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '4px 8px' }}>{t.appPage.sidebarWatchlist}</div>
             {filteredWatchlist.map(sym => {
               const meta = getSymbolMeta(sym);
               const isActive = sym === symbol;
@@ -614,7 +619,7 @@ export default function AppPage() {
                       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>{meta.name}/USDT</span>
                       {/* 缓存指示点 */}
                       {hasCached && !isActive && (
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', flexShrink: 0 }} title="有缓存" />
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', flexShrink: 0 }} title={t.appPage.cachedDot} />
                       )}
                     </div>
                     {isActive && price > 0 && (
@@ -639,7 +644,7 @@ export default function AppPage() {
                           }
                           setFavCoins(loadFavCoins(user.uid));
                         }}
-                        title={isFav ? '取消收藏' : '收藏'}
+                        title={isFav ? t.appPage.sidebarFavTitle : t.appPage.sidebarFavAdd}
                         style={{ fontSize: 12, color: isFav ? '#f0b429' : 'var(--t4)', cursor: 'pointer', padding: '0 1px', lineHeight: 1, transition: 'color .15s' }}
                         onMouseEnter={e => (e.currentTarget.style.color = '#f0b429')}
                         onMouseLeave={e => (e.currentTarget.style.color = isFav ? '#f0b429' : 'var(--t4)')}
@@ -666,8 +671,8 @@ export default function AppPage() {
               textTransform: 'uppercase', marginBottom: 6,
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <span>最近分析</span>
-              <span style={{ cursor: 'pointer', color: 'var(--primary)' }} onClick={() => navigate('user')}>全部</span>
+              <span>{t.appPage.sidebarRecentAnalysis}</span>
+              <span style={{ cursor: 'pointer', color: 'var(--primary)' }} onClick={() => navigate('user')}>{t.appPage.sidebarViewAll}</span>
             </div>
             {displayResult ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', borderRadius: 6, fontSize: 11 }}>
@@ -678,7 +683,7 @@ export default function AppPage() {
                 <span style={{ color: 'var(--t3)', marginLeft: 'auto' }}>{cacheTimeLabel}</span>
               </div>
             ) : (
-              <div style={{ fontSize: 11, color: 'var(--t3)', padding: '4px 6px' }}>暂无分析记录</div>
+              <div style={{ fontSize: 11, color: 'var(--t3)', padding: '4px 6px' }}>{t.appPage.sidebarNoHistory}</div>
             )}
           </div>
         </div>
@@ -711,7 +716,7 @@ export default function AppPage() {
                       }
                       if (e.key === 'Escape') { setMobileSearchVisible(false); setMobileSearchInput(''); }
                     }}
-                    placeholder="输入币种代码，如 BTC 或 SOLUSDT..."
+                    placeholder={t.appPage.mobilePlaceholder}
                     style={{
                       flex: 1, padding: '7px 10px', borderRadius: 8,
                       background: 'var(--bg3)', border: '1px solid var(--primary)',
@@ -731,11 +736,11 @@ export default function AppPage() {
                       setMobileSearchInput(''); setMobileSearchVisible(false);
                     }}
                     style={{ padding: '7px 14px', borderRadius: 8, background: 'var(--primary)', color: '#000', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}
-                  >添加</button>
+                  >{t.appPage.mobileAddBtn}</button>
                   <button
                     onClick={() => { setMobileSearchVisible(false); setMobileSearchInput(''); }}
                     style={{ padding: '7px 10px', borderRadius: 8, background: 'var(--bg3)', color: 'var(--t2)', fontSize: 13, border: '1px solid var(--border)', cursor: 'pointer' }}
-                  >取消</button>
+                  >{t.appPage.mobileCancelBtn}</button>
                 </div>
               )}
               {/* 横向滚动币种栏 */}
@@ -771,7 +776,7 @@ export default function AppPage() {
                     background: 'var(--bg3)', border: '1px dashed var(--border)',
                     color: 'var(--t3)', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
                   }}
-                >+ 搜索</button>
+                >{t.appPage.mobilePlusSearch}</button>
               </div>
             </div>
           )}
@@ -962,23 +967,23 @@ export default function AppPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 {(freshnessStatus === 'expired' || (freshnessStatus === 'fresh' && cacheExpired)) && (
                   <span style={{ fontSize: 10, color: 'var(--red)', background: 'rgba(239,68,68,0.08)', padding: '2px 7px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.25)', whiteSpace: 'nowrap' }}>
-                    数据已过期，建议重新分析
+                    {t.appPage.dataExpired}
                   </span>
                 )}
                 {freshnessStatus === 'stale' && !cacheExpired && (
                   <span style={{ fontSize: 10, color: 'var(--warn)', background: 'rgba(245,158,11,0.1)', padding: '2px 7px', borderRadius: 10, border: '1px solid rgba(245,158,11,0.3)', whiteSpace: 'nowrap' }}>
-                    数据来自 {cacheTimeLabel}，建议刷新
+                    {t.appPage.dataStale(cacheTimeLabel ?? '')}
                   </span>
                 )}
                 {freshnessStatus === 'fresh' && !cacheExpired && cacheTimeLabel && (
                   <span style={{ fontSize: 10, color: 'var(--t3)', whiteSpace: 'nowrap' }}>
-                    数据来自 {cacheTimeLabel}
+                    {t.appPage.dataFrom(cacheTimeLabel)}
                   </span>
                 )}
                 <button
                   onClick={handleForceReanalyze}
                   disabled={reanalyzeCooldown > 0 || loading}
-                  title={reanalyzeCooldown > 0 ? `${reanalyzeCooldown}s 后可重新分析` : '强制重新分析'}
+                  title={reanalyzeCooldown > 0 ? t.appPage.cooldownTitle(reanalyzeCooldown) : t.appPage.forceReanalyzeTitle}
                   style={{
                     padding: '3px 9px', borderRadius: 6, fontSize: 11, cursor: reanalyzeCooldown > 0 || loading ? 'not-allowed' : 'pointer',
                     border: `1px solid ${freshnessStatus === 'expired' ? 'rgba(239,68,68,0.4)' : 'var(--border)'}`,
@@ -1072,8 +1077,8 @@ export default function AppPage() {
               border: `1px solid ${pushConfig.enabled ? 'var(--green)' : 'var(--border)'}`,
               borderRadius: 8, background: pushConfig.enabled ? 'rgba(0,200,150,0.08)' : 'transparent',
               color: pushConfig.enabled ? 'var(--green)' : 'var(--t3)', fontSize: 11, cursor: 'pointer',
-            }}>
-              <Bell size={11} /> 推送
+            }            }>
+              <Bell size={11} /> {t.appPage.pushBtn}
             </button>
 
             {/* 更新时间 */}
@@ -1083,7 +1088,7 @@ export default function AppPage() {
                 background: loading ? '#f59e0b' : displayResult ? 'var(--green)' : 'var(--t3)',
                 animation: loading ? 'badge-pulse 0.8s infinite' : undefined,
               }} />
-              {loading ? '分析中...' : displayResult ? cacheTimeLabel + ' 更新' : '未分析'}
+              {loading ? t.appPage.analyzing : displayResult ? t.appPage.dataUpdated(cacheTimeLabel ?? '') : t.appPage.notAnalyzed}
             </div>
 
             {/* 管理员后台入口 */}
@@ -1092,7 +1097,7 @@ export default function AppPage() {
                 padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600,
                 background: 'rgba(240,180,41,0.15)', color: 'var(--primary)',
                 border: '1px solid rgba(240,180,41,0.4)', cursor: 'pointer',
-              }}>⚙️ 后台</button>
+              }}>{t.appPage.adminBtn}</button>
             )}
 
             {/* Avatar */}
@@ -1144,11 +1149,11 @@ export default function AppPage() {
                   <span style={{ color: 'var(--t3)' }}>·</span>
                   <span style={{ color: 'var(--t2)' }}>{tfConf.strategyType}</span>
                   <span style={{ color: 'var(--t3)' }}>·</span>
-                  <span style={{ color: 'var(--t3)' }}>仓位 {tfConf.positionMin}–{tfConf.positionMax}%</span>
+                  <span style={{ color: 'var(--t3)' }}>{t.appPage.positionRange(tfConf.positionMin, tfConf.positionMax)}</span>
                   <span style={{ color: 'var(--t3)' }}>·</span>
-                  <span style={{ color: 'var(--t3)' }}>时间止损 {displayResult.risk.timeStopHours}H</span>
+                  <span style={{ color: 'var(--t3)' }}>{t.appPage.timeStopH(displayResult.risk.timeStopHours)}</span>
                   <div style={{ flex: 1 }} />
-                  <span style={{ color: 'var(--t3)', fontSize: 11, fontFamily: 'monospace' }}>{chartKlines.length} 根K线</span>
+                  <span style={{ color: 'var(--t3)', fontSize: 11, fontFamily: 'monospace' }}>{t.appPage.klineCount(chartKlines.length)}</span>
                 </div>
               )}
 
@@ -1162,17 +1167,17 @@ export default function AppPage() {
                     background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(12px)',
                   }}>
                     <div style={{ fontSize: 48 }}>🎯</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>欢迎使用 AI威科夫Pro！</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>{t.appPage.welcomeTitle}</div>
                     <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.7, textAlign: 'center' }}>
                       {(() => {
                         const q = quotaInfo;
                         return q.isActive
-                          ? <>今日剩余 <strong style={{ color: 'var(--primary)' }}>{q.daily}/{q.total} 次</strong> AI 分析配额</>
-                          : <span style={{ color: 'var(--red)' }}>请先<strong onClick={() => navigate('recharge')} style={{ cursor: 'pointer', textDecoration: 'underline' }}>订阅套餐</strong>后使用</span>;
+                          ? t.appPage.quotaToday(q.daily, q.total)
+                          : <span style={{ color: 'var(--red)' }}>{t.appPage.noSubHint}<strong onClick={() => navigate('recharge')} style={{ cursor: 'pointer', textDecoration: 'underline' }}>{t.appPage.noSubLink}</strong>{t.appPage.noSubEnd}</span>;
                       })()}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 260 }}>
-                      {['在左侧选择币种', '选择分析周期（15m / 1H / 4H / 1D）', '点击「🤖 AI分析」获取报告'].map((text, i) => (
+                      {[t.appPage.guideStep1, t.appPage.guideStep2, t.appPage.guideStep3].map((text, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.85)', borderRadius: 10, padding: '9px 12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.06)' }}>
                           <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,122,255,0.12)', color: 'var(--primary)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
                           <div style={{ fontSize: 12, color: 'var(--t1)' }}>{text}</div>
@@ -1183,7 +1188,7 @@ export default function AppPage() {
                       padding: '9px 28px', borderRadius: 10,
                       background: 'linear-gradient(135deg, #f0b429, #e8920a)',
                       color: '#000', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer',
-                    }}>开始分析 →</button>
+                    }}>{t.appPage.startAnalyzeBtn}</button>
                   </div>
                 )}
 
@@ -1210,7 +1215,7 @@ export default function AppPage() {
                       borderBottom: indicatorExpanded ? '1px solid var(--border)' : 'none',
                     }}
                   >
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)' }}>技术指标</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)' }}>{t.appPage.indicatorBarTitle}</span>
                     <div style={{ flex: 1 }} />
                     {indicatorExpanded ? <ChevronUp size={12} color="var(--t3)" /> : <ChevronDown size={12} color="var(--t3)" />}
                   </div>
@@ -1221,7 +1226,7 @@ export default function AppPage() {
                         <IndicatorPanel indicators={displayResult.primaryIndicators} symbol={symbol} />
                       ) : (
                         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                          {['RSI(14)', 'MACD', 'BB位置', 'ADX', 'ATR'].map(label => (
+                          {['RSI(14)', 'MACD', t.appPage.indicatorBBPos, 'ADX', 'ATR'].map(label => (
                             <div key={label} style={{ textAlign: 'center', minWidth: 48 }}>
                               <div style={{ fontSize: 10, color: 'var(--t3)' }}>{label}</div>
                               <div style={{ height: 14, background: 'var(--bg3)', borderRadius: 4, marginTop: 4, width: 44 }} />
@@ -1404,11 +1409,11 @@ export default function AppPage() {
         >
           <div style={{ background: 'var(--bg2)', border: '1.5px solid var(--border)', borderRadius: 18, padding: '28px 24px', maxWidth: 440, width: '92%', position: 'relative' }}>
             <button onClick={() => setShowFeedbackModal(false)} style={{ position: 'absolute', top: 12, right: 16, background: 'none', border: 'none', color: 'var(--t3)', fontSize: 22, cursor: 'pointer' }}>×</button>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, color: 'var(--t1)' }}>💬 意见反馈</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, color: 'var(--t1)' }}>{t.appPage.feedbackTitle}</div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>反馈类型</div>
+              <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>{t.appPage.feedbackTypeLabel}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-                {([['bug','🐛 Bug'], ['feature','💡 建议'], ['complaint','🚨 投诉'], ['other','💬 其他']] as const).map(([k, label]) => (
+                {([['bug', t.appPage.feedbackBug], ['feature', t.appPage.feedbackFeature], ['complaint', t.appPage.feedbackComplaint], ['other', t.appPage.feedbackOther]] as const).map(([k, label]) => (
                   <div key={k} onClick={() => setFeedbackType(k)} style={{
                     padding: '6px 4px', borderRadius: 8, textAlign: 'center', cursor: 'pointer', fontSize: 11,
                     border: `1.5px solid ${feedbackType === k ? 'var(--primary)' : 'var(--border)'}`,
@@ -1420,11 +1425,11 @@ export default function AppPage() {
               </div>
             </div>
             <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>问题描述</div>
+              <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 8 }}>{t.appPage.feedbackContentLabel}</div>
               <textarea
                 value={feedbackContent}
                 onChange={e => setFeedbackContent(e.target.value)}
-                placeholder="请描述您遇到的问题或建议..."
+                placeholder={t.appPage.feedbackPlaceholder}
                 style={{
                   width: '100%', minHeight: 100, padding: '10px 12px',
                   borderRadius: 10, border: '1px solid var(--border)',
@@ -1442,11 +1447,11 @@ export default function AppPage() {
                   const { submitFeedback } = await import('../utils/feedbackStore');
                   const result = await submitFeedback({ uid: user.uid, email: user.email }, feedbackType, feedbackContent.trim());
                   if (result) {
-                    showToast('✅ 反馈已提交，感谢您的建议！');
+                    showToast(t.appPage.feedbackSuccess);
                     setFeedbackContent('');
                     setShowFeedbackModal(false);
                   } else {
-                    showToast('❌ 提交失败，请稍后重试');
+                    showToast(t.appPage.feedbackFailed);
                   }
                 } finally {
                   setFeedbackSubmitting(false);
@@ -1458,7 +1463,7 @@ export default function AppPage() {
                 color: feedbackContent.trim() ? '#000' : 'var(--t3)',
                 fontWeight: 700, fontSize: 14, cursor: feedbackContent.trim() ? 'pointer' : 'default',
               }}
-            >{feedbackSubmitting ? '提交中...' : '提交反馈'}</button>
+            >{feedbackSubmitting ? t.appPage.feedbackSubmittingBtn : t.appPage.feedbackSubmitBtn}</button>
           </div>
         </div>
       )}
@@ -1478,15 +1483,15 @@ export default function AppPage() {
             }}
           >
             <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: 'var(--t1)' }}>欢迎使用 AI威科夫Pro</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: 'var(--t1)' }}>{t.appPage.onboardingTitle}</h2>
             <p style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.7, marginBottom: 28 }}>
-              3步开始你的第一次专业分析
+              {t.appPage.onboardingSubtitle}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
               {[
-                { step: 1, icon: '🪙', title: '选择币种', desc: '在左侧边栏搜索或点击自选列表中的任意币种' },
-                { step: 2, icon: '⏱', title: '选择分析周期', desc: '在顶部选择 15m / 1H / 4H / 1D 其中一个周期' },
-                { step: 3, icon: '🤖', title: '点击 AI分析', desc: '点击右上角「🤖 AI分析」按钮，获取完整策略报告' },
+                { step: 1, icon: '🪙', title: t.appPage.onboardingStep1Title, desc: t.appPage.onboardingStep1Desc },
+                { step: 2, icon: '⏱', title: t.appPage.onboardingStep2Title, desc: t.appPage.onboardingStep2Desc },
+                { step: 3, icon: '🤖', title: t.appPage.onboardingStep3Title, desc: t.appPage.onboardingStep3Desc },
               ].map(item => (
                 <div key={item.step} style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
@@ -1515,9 +1520,9 @@ export default function AppPage() {
                 color: '#000', fontWeight: 700, fontSize: 15, cursor: 'pointer',
               }}
             >
-              开始使用 →
+              {t.appPage.onboardingStartBtn}
             </button>
-            <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 12 }}>点击任意处关闭 · 下次不再显示</div>
+            <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 12 }}>{t.appPage.onboardingDismiss}</div>
           </div>
         </div>
       )}
@@ -1527,16 +1532,17 @@ export default function AppPage() {
 
 // 空状态引导
 function EmptyPanelGuide({ onAnalyze }: { onAnalyze: () => void }) {
+  const t = useT();
   return (
     <div style={{ padding: 40, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
       <div style={{ fontSize: 40 }}>🤖</div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t1)' }}>等待 AI 分析</div>
-      <div style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.6 }}>点击顶部「AI分析」按钮<br />获取专业分析报告</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--t1)' }}>{t.appPage.emptyWaiting}</div>
+      <div style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.6 }}>{t.appPage.emptyHint.split('\n').map((line, i) => <span key={i}>{line}{i === 0 ? <br /> : null}</span>)}</div>
       <button onClick={onAnalyze} style={{
         marginTop: 8, padding: '8px 20px', borderRadius: 8,
         background: 'linear-gradient(135deg, #f0b429, #e8920a)',
         color: '#000', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer',
-      }}>立即分析</button>
+      }}>{t.appPage.emptyAnalyzeBtn}</button>
     </div>
   );
 }

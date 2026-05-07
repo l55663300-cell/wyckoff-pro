@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../components/Toast';
 import { apiResetConfirm, checkPasswordStrength, PASSWORD_RE, type ApiError } from '../api/auth';
+import { useT } from '../i18n';
 
 function PasswordStrengthBar({ password }: { password: string }) {
   if (!password) return null;
+  const t = useT();
   const { score, tips } = checkPasswordStrength(password);
   const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e'];
-  const labels = ['太弱', '弱', '中等', '强'];
+  const labels = [t.auth.pwStrengthTooWeak, t.auth.pwStrengthWeak, t.auth.pwStrengthMedium, t.auth.pwStrengthStrong];
   return (
     <div style={{ marginTop: 6 }}>
       <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
@@ -24,7 +26,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
           {score > 0 ? labels[score - 1] : ''}
         </span>
         {tips.length > 0 && (
-          <span style={{ fontSize: 11, color: 'var(--t3)' }}>还需：{tips.join('、')}</span>
+          <span style={{ fontSize: 11, color: 'var(--t3)' }}>{t.auth.pwStrengthMore}{tips.join('、')}</span>
         )}
       </div>
     </div>
@@ -34,6 +36,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
 export default function ResetPasswordPage() {
   const { navigate } = useApp();
   const { showToast } = useToast();
+  const t = useT();
 
   const [token, setToken] = useState('');
   const [pw, setPw] = useState('');
@@ -42,31 +45,29 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  // 从 URL 获取 token（App.tsx 清除了 search，需要从 state 传过来）
-  // 实际上 App.tsx 在 navigate 前读了 token，这里用 sessionStorage 中转
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const t = params.get('reset_token') || sessionStorage.getItem('pending_reset_token') || '';
-    setToken(t);
-    if (t) sessionStorage.removeItem('pending_reset_token');
+    const tok = params.get('reset_token') || sessionStorage.getItem('pending_reset_token') || '';
+    setToken(tok);
+    if (tok) sessionStorage.removeItem('pending_reset_token');
   }, []);
 
   const handleSubmit = async () => {
     setError('');
-    if (!token) { setError('重置链接无效，请重新申请'); return; }
+    if (!token) { setError(t.reset.invalidToken); return; }
     if (!PASSWORD_RE.test(pw)) {
-      setError('密码需8位以上且包含字母、数字、特殊字符');
+      setError(t.reset.weakPassword);
       return;
     }
-    if (pw !== pw2) { setError('两次密码不一致'); return; }
+    if (pw !== pw2) { setError(t.auth.confirmPasswordError); return; }
 
     setLoading(true);
     try {
       await apiResetConfirm(token, pw);
       setDone(true);
-      showToast('密码重置成功，请用新密码登录', 'success');
+      showToast(t.reset.successToast, 'success');
     } catch (e) {
-      setError((e as ApiError).message ?? '重置失败，请稍后重试');
+      setError((e as ApiError).message ?? t.reset.weakPassword);
     } finally {
       setLoading(false);
     }
@@ -91,13 +92,13 @@ export default function ResetPasswordPage() {
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
           <span style={{ fontSize: 26 }}>🦞</span>
-          <span style={{ fontWeight: 700, fontSize: 17 }}>AI威科夫Pro</span>
+          <span style={{ fontWeight: 700, fontSize: 17 }}>{t.reset.brandName}</span>
         </div>
 
         {!done ? (
           <>
-            <h2 style={{ margin: '0 0 6px', fontSize: 20 }}>重置密码</h2>
-            <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--t2)' }}>请设置新的登录密码</p>
+            <h2 style={{ margin: '0 0 6px', fontSize: 20 }}>{t.reset.title}</h2>
+            <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--t2)' }}>{t.reset.subtitle}</p>
 
             {error && (
               <div style={{
@@ -110,8 +111,8 @@ export default function ResetPasswordPage() {
             )}
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 5, display: 'block' }}>新密码</label>
-              <input type="password" placeholder="8位以上，含字母+数字+特殊字符"
+              <label style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 5, display: 'block' }}>{t.reset.newPasswordLabel}</label>
+              <input type="password" placeholder={t.reset.newPasswordPlaceholder}
                 value={pw} onChange={e => setPw(e.target.value)} disabled={loading}
                 style={inputStyle}
                 onFocus={e => (e.target.style.borderColor = '#f0b429')}
@@ -120,8 +121,8 @@ export default function ResetPasswordPage() {
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 5, display: 'block' }}>确认新密码</label>
-              <input type="password" placeholder="再次输入新密码"
+              <label style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 5, display: 'block' }}>{t.reset.confirmLabel}</label>
+              <input type="password" placeholder={t.reset.confirmPlaceholder}
                 value={pw2} onChange={e => setPw2(e.target.value)} disabled={loading}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
                 style={{
@@ -131,7 +132,7 @@ export default function ResetPasswordPage() {
                 onFocus={e => (e.target.style.borderColor = '#f0b429')}
                 onBlur={e => (e.target.style.borderColor = pw2 && pw !== pw2 ? 'rgba(239,68,68,0.6)' : 'var(--border)')} />
               {pw2 && pw !== pw2 && (
-                <p style={{ fontSize: 11, color: '#f87171', marginTop: 3 }}>两次密码不一致</p>
+                <p style={{ fontSize: 11, color: '#f87171', marginTop: 3 }}>{t.reset.confirmError}</p>
               )}
             </div>
 
@@ -142,21 +143,21 @@ export default function ResetPasswordPage() {
               color: '#000', fontWeight: 700, fontSize: 15,
               opacity: loading ? 0.7 : 1,
             }}>
-              {loading ? '重置中...' : '确认重置密码'}
+              {loading ? t.reset.submittingBtn : t.reset.submitBtn}
             </button>
           </>
         ) : (
           <div style={{ textAlign: 'center', padding: '20px 0' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-            <h3 style={{ margin: '0 0 8px', fontSize: 18 }}>密码重置成功</h3>
+            <h3 style={{ margin: '0 0 8px', fontSize: 18 }}>{t.reset.doneTitle}</h3>
             <p style={{ fontSize: 13, color: 'var(--t2)', margin: '0 0 24px' }}>
-              请用新密码重新登录
+              {t.reset.doneDesc}
             </p>
             <button onClick={() => navigate('landing')} style={{
               padding: '11px 32px', borderRadius: 10, border: 'none', cursor: 'pointer',
               background: 'linear-gradient(135deg, #f0b429, #e8920a)',
               color: '#000', fontWeight: 700, fontSize: 14,
-            }}>返回首页</button>
+            }}>{t.reset.backHome}</button>
           </div>
         )}
       </div>
