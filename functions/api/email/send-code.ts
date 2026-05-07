@@ -114,7 +114,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         'Authorization': `Bearer ${supabaseKey}`,
         'Prefer': 'resolution=merge-duplicates',
       },
-      body: JSON.stringify({ email, code, expire_at: expireAt }),
+      body: JSON.stringify({ email, code, expires_at: expireAt }),
     },
   );
 

@@ -57,7 +57,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   // 查询验证码
   const queryResp = await fetch(
-    `${supabaseUrl}/rest/v1/email_verify_codes?email=eq.${encodeURIComponent(email)}&select=code,expire_at`,
+    `${supabaseUrl}/rest/v1/email_verify_codes?email=eq.${encodeURIComponent(email)}&select=code,expires_at`,
     {
       headers: {
         'apikey': supabaseKey,
@@ -70,13 +70,13 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return json({ error: '验证码查询失败，请重新发送' }, 502);
   }
 
-  const rows = await queryResp.json() as Array<{ code: string; expire_at: string }>;
+  const rows = await queryResp.json() as Array<{ code: string; expires_at: string }>;
   if (!rows.length) {
     return json({ error: '验证码不存在或已过期，请重新发送' }, 400);
   }
 
   const row = rows[0];
-  if (new Date(row.expire_at) < new Date()) {
+  if (new Date(row.expires_at) < new Date()) {
     return json({ error: '验证码已过期，请重新发送' }, 400);
   }
 
