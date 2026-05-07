@@ -103,7 +103,19 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const code = generateCode();
   const expireAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-  // 将验证码写入 Supabase（upsert，同一邮箱覆盖旧码）
+  // 先删除同邮箱旧验证码
+  await fetch(
+    `${supabaseUrl}/rest/v1/email_verify_codes?email=eq.${encodeURIComponent(email)}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+    },
+  );
+
+  // 写入新验证码
   const supabaseResp = await fetch(
     `${supabaseUrl}/rest/v1/email_verify_codes`,
     {
@@ -112,7 +124,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         'Content-Type': 'application/json',
         'apikey': supabaseKey,
         'Authorization': `Bearer ${supabaseKey}`,
-        'Prefer': 'resolution=merge-duplicates',
+        'Prefer': 'return=minimal',
       },
       body: JSON.stringify({ email, code, expires_at: expireAt }),
     },
