@@ -470,7 +470,7 @@ export default function UserPage() {
                   }} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--t2)', cursor: 'pointer' }}>{t.user.copyLinkBtn}</button>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--t2)', wordBreak: 'break-all', padding: '8px 12px', background: 'var(--bg3)', borderRadius: 8, marginBottom: 16 }}>
-                  https://wyckoff.pro/register?ref={user.inviteCode}
+                  https://wkfpro.com/register?ref={user.inviteCode}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 14 }}>
                   {[

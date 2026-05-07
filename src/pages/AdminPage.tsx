@@ -97,9 +97,9 @@ interface AdminUser {
 }
 
 const INITIAL_ADMINS: AdminUser[] = [
-  { id: 1, name: 'Super Admin', email: 'admin@wyckoff.pro',   role: 'super_admin',   customPerms: [], color: 'rgba(240,180,41,0.15)', tc: 'var(--primary)' },
-  { id: 2, name: '运营小李',     email: 'ops@wyckoff.pro',     role: 'ops',           customPerms: [], color: 'rgba(99,179,237,0.12)',  tc: '#63b3ed' },
-  { id: 3, name: '内容编辑',     email: 'content@wyckoff.pro', role: 'content_admin', customPerms: [], color: 'rgba(154,230,180,0.12)', tc: '#68d391' },
+  { id: 1, name: 'Super Admin', email: 'admin@wkfpro.com',   role: 'super_admin',   customPerms: [], color: 'rgba(240,180,41,0.15)', tc: 'var(--primary)' },
+  { id: 2, name: '运营小李',     email: 'ops@wkfpro.com',     role: 'ops',           customPerms: [], color: 'rgba(99,179,237,0.12)',  tc: '#63b3ed' },
+  { id: 3, name: '内容编辑',     email: 'content@wkfpro.com', role: 'content_admin', customPerms: [], color: 'rgba(154,230,180,0.12)', tc: '#68d391' },
 ];
 
 const ROLE_DISPLAY: Record<string, { label: string; color: string; bg: string }> = {

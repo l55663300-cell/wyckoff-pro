@@ -57,7 +57,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: 'noreply@wyckoff.pro',
+        from: 'noreply@wkfpro.com',
         to: body.to,
         subject: body.subject,
         text: body.text ?? '',

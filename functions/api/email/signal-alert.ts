@@ -5,7 +5,7 @@
  *
  * CF 环境变量：
  *   RESEND_API_KEY = re_SNYgsZEf_Ez6Gjo8F4LYMqhgR9nUSbdxa
- *   EMAIL_FROM     = noreply@wyckoff.pro（或 onboarding@resend.dev）
+ *   EMAIL_FROM     = noreply@wkfpro.com（或 onboarding@resend.dev）
  *
  * 请求格式：POST /api/email/signal-alert
  * Body: {
@@ -107,13 +107,13 @@ function signalHtml(req: SignalAlertRequest): string {
         </div>
       </div>
       ` : ''}
-      <a href="https://wyckoff.pro" style="display:block;background:linear-gradient(135deg,#f0b429,#e8920a);color:#000;text-decoration:none;padding:12px;border-radius:8px;font-size:14px;font-weight:700;text-align:center">
+      <a href="https://wkfpro.com" style="display:block;background:linear-gradient(135deg,#f0b429,#e8920a);color:#000;text-decoration:none;padding:12px;border-radius:8px;font-size:14px;font-weight:700;text-align:center">
         打开分析详情 →
       </a>
     </div>
     <div style="padding:16px 32px;border-top:1px solid #30363d;text-align:center">
       <p style="color:#484f58;font-size:11px;margin:0">
-        本邮件由 Wyckoff Pro 信号系统自动发送 · <a href="https://wyckoff.pro" style="color:#4d9fff;text-decoration:none">wyckoff.pro</a>
+        本邮件由 Wyckoff Pro 信号系统自动发送 · <a href="https://wkfpro.com" style="color:#4d9fff;text-decoration:none">wkfpro.com</a>
       </p>
       <p style="color:#484f58;font-size:11px;margin:4px 0 0">仅供参考，不构成投资建议。市场有风险，交易需谨慎。</p>
     </div>

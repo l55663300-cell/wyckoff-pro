@@ -68,13 +68,13 @@ function welcomeHtml(name: string): string {
           ✅ 恐惧贪婪指数实时监控
         </div>
       </div>
-      <a href="https://wyckoff.pro" style="display:inline-block;background:#4d9fff;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:15px;font-weight:600">
+      <a href="https://wkfpro.com" style="display:inline-block;background:#4d9fff;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:15px;font-weight:600">
         立即开始分析 →
       </a>
     </div>
     <div style="padding:20px 40px;border-top:1px solid #30363d;text-align:center">
       <p style="color:#484f58;font-size:12px;margin:0">
-        如有问题请回复此邮件 · <a href="https://wyckoff.pro" style="color:#4d9fff;text-decoration:none">wyckoff.pro</a>
+        如有问题请回复此邮件 · <a href="https://wkfpro.com" style="color:#4d9fff;text-decoration:none">wkfpro.com</a>
       </p>
     </div>
   </div>

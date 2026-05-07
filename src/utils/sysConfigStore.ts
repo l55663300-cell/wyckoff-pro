@@ -34,7 +34,7 @@ export interface SysConfig {
 
 const DEFAULT_CONFIG: SysConfig = {
   siteName: 'AI威科夫Pro',
-  supportEmail: 'support@wyckoff.pro',
+  supportEmail: 'support@wkfpro.com',
   supportWeChat: '',
   supportNote: '工作日 09:00–18:00 响应',
   subscriptionNote:
