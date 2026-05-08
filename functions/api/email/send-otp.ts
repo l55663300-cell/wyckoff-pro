@@ -18,25 +18,12 @@ function json(data: unknown, status = 200) {
   });
 }
 
-const DISPOSABLE = new Set([
-  'mailinator.com', 'guerrillamail.com', 'tempmail.com',
-  'yopmail.com', 'trashmail.com', 'maildrop.cc', '10minutemail.com',
-]);
-
 export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (request.method !== 'POST') return json({ error: '仅支持 POST' }, 405);
 
-  const { RESEND_API_KEY: apiKey, SUPABASE_URL: sbUrl, SUPABASE_SERVICE_KEY: sbKey } = env;
-
-  if (!apiKey || !sbUrl || !sbKey) {
-    const missing = [
-      !apiKey && 'RESEND_API_KEY',
-      !sbUrl && 'SUPABASE_URL',
-      !sbKey && 'SUPABASE_SERVICE_KEY',
-    ].filter(Boolean).join(', ');
-    return json({ error: `缺少环境变量: ${missing}` }, 503);
-  }
+  const apiKey = env.RESEND_API_KEY;
+  if (!apiKey) return json({ error: '缺少 RESEND_API_KEY' }, 503);
 
   let email: string;
   try {
@@ -46,50 +33,11 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     return json({ error: '请求体格式错误' }, 400);
   }
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return json({ error: '邮箱格式不正确' }, 400);
-  }
-  if (DISPOSABLE.has(email.split('@')[1])) {
-    return json({ error: '不支持临时邮箱' }, 400);
-  }
+  if (!email) return json({ error: '邮箱不能为空' }, 400);
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expireAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-  // Step 2a: DELETE旧验证码
-  try {
-    await fetch(`${sbUrl}/rest/v1/email_verify_codes?email=eq.${encodeURIComponent(email)}`, {
-      method: 'DELETE',
-      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
-    });
-  } catch (err) {
-    return json({ error: 'step2a-delete-failed', detail: String(err) }, 503);
-  }
-
-  // Step 2b: INSERT新验证码
-  let r: Response;
-  try {
-    r = await fetch(`${sbUrl}/rest/v1/email_verify_codes`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: sbKey,
-        Authorization: `Bearer ${sbKey}`,
-        Prefer: 'return=minimal',
-      },
-      body: JSON.stringify({ email, code, expires_at: expireAt }),
-    });
-  } catch (err) {
-    return json({ error: 'step2b-insert-failed', detail: String(err) }, 503);
-  }
-
-  if (!r.ok) {
-    const t = await r.text();
-    return json({ error: `DB写入失败(${r.status})`, detail: t }, 502);
-  }
-
-  // Step 2c: 发送邮件
-  const from = env.EMAIL_FROM ?? 'Wyckoff Pro <onboarding@resend.dev>';
+  // 只测 Resend，不碰 Supabase
   let mr: Response;
   try {
     mr = await fetch('https://api.resend.com/emails', {
@@ -99,18 +47,18 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from,
+        from: 'Wyckoff Pro <onboarding@resend.dev>',
         to: email,
         subject: `【Wyckoff Pro】验证码 ${code}`,
-        html: `<div style="font-family:Arial;background:#0d1117;padding:40px;text-align:center"><div style="background:#161b22;border-radius:12px;padding:40px;border:1px solid #30363d;max-width:400px;margin:auto"><h2 style="color:#4d9fff">WYCKOFF PRO</h2><p style="color:#8b949e">您的验证码（5分钟有效）</p><div style="font-size:42px;font-weight:bold;color:#4d9fff;letter-spacing:10px;margin:24px 0">${code}</div><p style="color:#484f58;font-size:12px">如非本人操作请忽略</p></div></div>`,
+        html: `<p>验证码：<strong>${code}</strong>（5分钟有效）</p>`,
       }),
     });
   } catch (err) {
-    return json({ error: 'step2c-resend-failed', detail: String(err) }, 503);
+    return json({ error: 'resend-fetch-failed', detail: String(err) }, 503);
   }
 
-  const md = await mr.json() as { id?: string; message?: string };
-  if (!mr.ok) return json({ error: `邮件发送失败: ${md.message ?? '未知'}` }, 502);
+  const md = await mr.json() as { id?: string; message?: string; name?: string };
+  if (!mr.ok) return json({ error: `邮件发送失败`, detail: md }, 502);
 
-  return json({ ok: true });
+  return json({ ok: true, id: md.id });
 };
