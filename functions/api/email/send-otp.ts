@@ -30,6 +30,9 @@ const DISPOSABLE = new Set([
 ]);
 
 export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
+  // DIAGNOSTIC: return immediately to test if Worker boots
+  return json({ boot: true, method: request.method, envKeys: Object.keys(env) }, 200);
+
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (request.method !== 'POST') return json({ error: '仅支持 POST' }, 405);
 
