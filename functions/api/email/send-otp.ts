@@ -78,7 +78,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
         Authorization: `Bearer ${sbKey}`,
         Prefer: 'return=minimal',
       },
-      body: JSON.stringify({ email, code, expires_at: expireAt }),
+      body: JSON.stringify({ email, code, expire_at: expireAt }),
     });
   } catch (err) {
     return json({ error: `Supabase连接失败: ${String(err)}` }, 503);
