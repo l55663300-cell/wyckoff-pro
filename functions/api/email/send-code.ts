@@ -9,7 +9,7 @@ interface Env {
   EMAIL_FROM?: string;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_KEY?: string;
-  RATE_LIMIT_KV?: KVNamespace;
+  RATE_LIMIT_KV?: unknown;
 }
 
 const CORS_HEADERS = {
@@ -75,17 +75,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return json({ error: '不支持临时邮箱，请使用真实邮箱注册' }, 400);
   }
 
-  // IP 限速（每小时5次）
-  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-  if (env.RATE_LIMIT_KV) {
-    const key = `vc_rate:${ip}`;
-    const raw = await env.RATE_LIMIT_KV.get(key);
-    const count = raw ? parseInt(raw) : 0;
-    if (count >= 5) {
-      return json({ error: '发送过于频繁，请1小时后再试' }, 429);
-    }
-    await env.RATE_LIMIT_KV.put(key, String(count + 1), { expirationTtl: 3600 });
-  }
+  // IP 限速（需绑定 KV Namespace 后启用）
+  // if (env.RATE_LIMIT_KV) { ... }
 
   const code = generateCode();
   const expireAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
