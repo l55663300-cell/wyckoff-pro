@@ -5,6 +5,8 @@
 
 import { supabase } from '../lib/supabase';
 import { activateSubscription, getFreeTrialPlan } from '../utils/subscriptionStore';
+import { loadSysConfig } from '../utils/sysConfigStore';
+import { recordInvite } from '../utils/queryStore';
 
 export interface AuthUser {
   uid: string;
@@ -170,12 +172,46 @@ export async function apiRegister(
   await new Promise(r => setTimeout(r, 500));
   const profile = await fetchProfile(user.id);
 
-  // 赠送7天免费试用订阅
-  const welcomeCredits = 5;
+  // 注册后自动登录，拿到 session 才能通过 RLS 写 user_subscriptions
+  let sessionOk = false;
   try {
-    await activateSubscription(user.id, getFreeTrialPlan());
+    const { data: signInData } = await supabase.auth.signInWithPassword({ email: trimEmail, password });
+    sessionOk = !!signInData.session;
   } catch (e) {
-    console.warn('[注册] 免费试用订阅写入失败', e);
+    console.warn('[注册] 自动登录失败', e);
+  }
+
+  // 赠送免费试用订阅（必须在 session 建立后）
+  const cfg = loadSysConfig();
+  const welcomeCredits = cfg.freeTrialDailyLimit ?? 5;
+  if (sessionOk) {
+    try {
+      const basePlan = getFreeTrialPlan();
+      // 如果有邀请码，被邀请人 dailyLimit 叠加奖励次数
+      const inviteeBonus = inviterInviteCode ? (cfg.inviteeRewardCredits ?? 5) : 0;
+      const plan = inviteeBonus > 0
+        ? { ...basePlan, dailyLimit: basePlan.dailyLimit + inviteeBonus, hourlyLimit: basePlan.hourlyLimit + inviteeBonus }
+        : basePlan;
+      await activateSubscription(user.id, plan);
+    } catch (e) {
+      console.warn('[注册] 免费试用订阅写入失败', e);
+    }
+  }
+
+  // 记录邀请关系，供邀请人查看（写到邀请人的邀请记录里）
+  if (inviterInviteCode) {
+    try {
+      const { data: inviter } = await supabase
+        .from('profiles')
+        .select('uid')
+        .eq('invite_code', inviterInviteCode)
+        .single();
+      if (inviter?.uid) {
+        recordInvite(inviter.uid, user.email!);
+      }
+    } catch (e) {
+      console.warn('[注册] 邀请记录写入失败', e);
+    }
   }
 
   // 发送欢迎邮件（异步，不阻塞注册流程）
