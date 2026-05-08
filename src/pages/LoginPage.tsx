@@ -16,7 +16,7 @@ type AuthView = 'login' | 'register' | 'forgot';
 
 // 验证码相关 API（走 Cloudflare Function）
 async function sendVerifyCode(email: string): Promise<void> {
-  const resp = await fetch('/api/email/send-code', {
+  const resp = await fetch('/api/email/send-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
