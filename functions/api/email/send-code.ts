@@ -54,6 +54,16 @@ function generateCode(): string {
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
+  try {
+    return await handleRequest(context);
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+    console.error('[send-code] UNCAUGHT:', msg);
+    return json({ error: 'Internal error', detail: msg }, 500);
+  }
+};
+
+async function handleRequest(context: Parameters<PagesFunction<Env>>[0]) {
   if (context.request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
@@ -188,4 +198,4 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     console.error('[send-code] fetch error:', msg);
     return json({ error: '邮件服务请求失败', detail: msg }, 502);
   }
-};
+}
