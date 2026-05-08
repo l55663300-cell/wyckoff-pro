@@ -66,8 +66,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const supabaseKey = context.env.SUPABASE_SERVICE_KEY;
 
   if (!apiKey || !supabaseUrl || !supabaseKey) {
-    console.error('[send-code] 环境变量未完整配置');
-    return json({ error: '服务暂时不可用，请联系管理员' }, 503);
+    const missing = [!apiKey && 'RESEND_API_KEY', !supabaseUrl && 'SUPABASE_URL', !supabaseKey && 'SUPABASE_SERVICE_KEY'].filter(Boolean).join(', ');
+    console.error('[send-code] 环境变量未完整配置:', missing);
+    return json({ error: `服务暂时不可用，缺少环境变量: ${missing}` }, 503);
   }
 
   let body: { email?: string };
@@ -133,7 +134,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   if (!supabaseResp.ok) {
     const errText = await supabaseResp.text();
     console.error('[send-code] Supabase 写入失败:', errText);
-    return json({ error: '验证码生成失败，请稍后重试' }, 502);
+    return json({ error: `Supabase写入失败(${supabaseResp.status}): ${errText}` }, 502);
   }
 
   // 发送邮件
