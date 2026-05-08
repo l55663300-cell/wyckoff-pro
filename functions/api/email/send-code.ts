@@ -2,6 +2,7 @@
  * 发送注册邮箱验证码（Cloudflare Pages Function）
  * POST /api/email/send-code
  * Body: { email: string }
+ * v2
  */
 
 interface Env {
