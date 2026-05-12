@@ -476,7 +476,7 @@ export default function AppPage() {
   }, []);
 
   // 手机端底部 tab
-  type MobileTab = 'report' | 'wyckoff' | 'indicators';
+  type MobileTab = 'report' | 'wyckoff' | 'evidence' | 'sentiment' | 'indicators';
   const [mobileTab, setMobileTab] = useState<MobileTab>('report');
 
   const [mobileSearchVisible, setMobileSearchVisible] = useState(false);
@@ -1129,7 +1129,32 @@ export default function AppPage() {
           </div>
           )}
 
-          {/* ── 图表+右面板（移动端隐藏图表区，只展示右侧面板内容） ── */}
+          {/* ── 手机端K线折叠区 ── */}
+          {isMobile && (
+            <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <div
+                onClick={() => setIndicatorExpanded(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px', cursor: 'pointer' }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)' }}>📈 K线图</span>
+                {indicatorExpanded ? <ChevronUp size={13} color="var(--t3)" /> : <ChevronDown size={13} color="var(--t3)" />}
+              </div>
+              {indicatorExpanded && (
+                <div style={{ display: 'flex', height: 200, flexShrink: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <CandlestickChart klines={chartKlines} height={200} symbol={symbol} timeframe={activeTimeframe} />
+                  </div>
+                  {displayResult && (
+                    <div style={{ width: 56, background: 'var(--bg3)', borderLeft: '1px solid var(--border)', flexShrink: 0 }}>
+                      <VolumeProfileBar profile={displayResult.volumeProfile} symbol={symbol} currentPrice={displayResult.price} height={200} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── 图表+右面板（移动端隐藏图表大区，只展示右侧面板内容） ── */}
           <div style={{ flex: 1, display: isMobile ? 'none' : 'flex', overflow: 'hidden', minHeight: 0 }}>
 
             {/* 图表区（手机端隐藏，桌面端展示） */}
@@ -1332,6 +1357,27 @@ export default function AppPage() {
                   <div style={{ paddingBottom: 72 }}><EmptyPanelGuide onAnalyze={() => handleAnalyze()} /></div>
                 )
               )}
+              {mobileTab === 'evidence' && (
+                displayResult ? (
+                  <div style={{ padding: '12px 12px 72px' }}>
+                    <EvidenceChain result={displayResult} />
+                  </div>
+                ) : (
+                  <div style={{ paddingBottom: 72 }}><EmptyPanelGuide onAnalyze={() => handleAnalyze()} /></div>
+                )
+              )}
+              {mobileTab === 'sentiment' && (
+                displayResult ? (
+                  <div style={{ padding: '12px 12px 72px' }}>
+                    <KeyLevels result={displayResult} />
+                    <div style={{ marginTop: 12 }}>
+                      <SentimentCompact result={displayResult} />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ paddingBottom: 72 }}><EmptyPanelGuide onAnalyze={() => handleAnalyze()} /></div>
+                )
+              )}
               {mobileTab === 'indicators' && (
                 <div style={{ padding: '12px 12px 72px' }}>
                   {displayResult ? (
@@ -1365,16 +1411,18 @@ export default function AppPage() {
       {isMobile && (
         <div className="mobile-tab-bar">
           {([
-            { key: 'report', icon: '🤖', label: t.app.mobileTabReport },
-            { key: 'wyckoff', icon: '🦞', label: t.app.mobileTabWyckoff },
-            { key: 'indicators', icon: '📊', label: t.app.mobileTabIndicators },
+            { key: 'report',     icon: '🤖', label: t.app.mobileTabReport },
+            { key: 'wyckoff',    icon: '🦞', label: t.app.mobileTabWyckoff },
+            { key: 'evidence',   icon: '📊', label: '证据链' },
+            { key: 'sentiment',  icon: '🌡️', label: '情绪' },
+            { key: 'indicators', icon: '📈', label: t.app.mobileTabIndicators },
           ] as { key: MobileTab; icon: string; label: string }[]).map(tab => (
             <button
               key={tab.key}
               className={`mobile-tab-item${mobileTab === tab.key ? ' active' : ''}`}
               onClick={() => setMobileTab(tab.key)}
             >
-              <span style={{ fontSize: 18 }}>{tab.icon}</span>
+              <span style={{ fontSize: 16 }}>{tab.icon}</span>
               <span>{tab.label}</span>
             </button>
           ))}
