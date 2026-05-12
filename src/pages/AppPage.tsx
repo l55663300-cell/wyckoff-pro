@@ -11,6 +11,8 @@ import { OrderBookHeatmap } from '../components/chart/OrderBookHeatmap';
 import { IndicatorPanel } from '../components/indicators/IndicatorPanel';
 import { ReportPanel } from '../components/report/ReportPanel';
 import { TrendingPanel } from '../components/news/TrendingPanel';
+import { SentimentPanel } from '../components/indicators/SentimentPanel';
+import { VSASignalPanel } from '../components/wyckoff/VSASignalPanel';
 import { WechatAlertModal } from '../components/WechatAlertModal';
 import { WechatPushConfig, loadPushConfig, sendWechatPush, buildEntryAlertMessage } from '../utils/wechatPush';
 import { formatPrice, formatPercent } from '../utils/formatters';
@@ -118,7 +120,7 @@ function getResultFreshness(timestamp: number, timeframe: import('../types').Tim
   return 'expired';
 }
 
-type RightPanelTab = 'ai' | 'wyckoff' | 'news';
+type RightPanelTab = 'ai' | 'wyckoff' | 'signals' | 'news';
 
 export default function AppPage() {
   const { user, navigate, consumeQuota, getQuota } = useApp();
@@ -1259,6 +1261,7 @@ export default function AppPage() {
                 {([
                   { key: 'ai', label: t.app.tabAI },
                   { key: 'wyckoff', label: t.app.tabWyckoff },
+                  { key: 'signals', label: '量化信号' },
                   { key: 'news', label: t.app.tabTrending },
                 ] as { key: RightPanelTab; label: string }[]).map(t => (
                   <div key={t.key} onClick={() => setRightTab(t.key)} style={{
@@ -1281,6 +1284,29 @@ export default function AppPage() {
                 {rightTab === 'ai' && (
                   displayResult ? (
                     <div style={{ padding: 14 }}>
+                      {/* 结论摘要条 */}
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+                        padding: '9px 12px', borderRadius: 10,
+                        background: displayResult.scoring.direction === 'long' ? 'rgba(5,150,105,0.08)' : displayResult.scoring.direction === 'short' ? 'rgba(220,38,38,0.08)' : 'rgba(148,163,184,0.08)',
+                        border: `1px solid ${displayResult.scoring.direction === 'long' ? 'rgba(5,150,105,0.25)' : displayResult.scoring.direction === 'short' ? 'rgba(220,38,38,0.25)' : 'rgba(148,163,184,0.25)'}`,
+                      }}>
+                        <span style={{ fontSize: 20 }}>
+                          {displayResult.scoring.direction === 'long' ? '🟢' : displayResult.scoring.direction === 'short' ? '🔴' : '⚪'}
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: displayResult.scoring.direction === 'long' ? '#059669' : displayResult.scoring.direction === 'short' ? '#dc2626' : '#94a3b8' }}>
+                            {displayResult.scoring.direction === 'long' ? '看多' : displayResult.scoring.direction === 'short' ? '看空' : '中性观望'}
+                            <span style={{ marginLeft: 6, fontFamily: 'monospace', fontSize: 13 }}>
+                              {displayResult.scoring.probability}%
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>
+                            {displayResult.wyckoff.phase === 'accumulation' ? '吸筹阶段' : displayResult.wyckoff.phase === 'markup' ? '上涨阶段' : displayResult.wyckoff.phase === 'distribution' ? '派发阶段' : '下跌阶段'}
+                            {' · '}评分 {displayResult.scoring.score > 0 ? '+' : ''}{typeof displayResult.scoring.score === 'number' ? displayResult.scoring.score.toFixed(2) : displayResult.scoring.score}
+                          </div>
+                        </div>
+                      </div>
                       <ReportPanel result={{ ...displayResult, news: [] }} activeTimeframe={activeTimeframe} />
                     </div>
                   ) : (
@@ -1289,13 +1315,23 @@ export default function AppPage() {
                 )}
                 {rightTab === 'wyckoff' && (
                   displayResult ? (
-                    <WyckoffPane result={displayResult} />
+                    <WyckoffPane result={displayResult} klines={displayResult ? chartKlines : []} />
+                  ) : (
+                    <EmptyPanelGuide onAnalyze={() => handleAnalyze()} />
+                  )
+                )}
+                {rightTab === 'signals' && (
+                  displayResult ? (
+                    <SignalsPane result={displayResult} />
                   ) : (
                     <EmptyPanelGuide onAnalyze={() => handleAnalyze()} />
                   )
                 )}
                 {rightTab === 'news' && (
-                  <div style={{ padding: 14 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14 }}>
+                    {displayResult && (
+                      <SentimentPanel sentiment={displayResult.sentiment} socialHeat={displayResult.socialHeat} />
+                    )}
                     <TrendingPanel />
                   </div>
                 )}
@@ -1530,7 +1566,165 @@ export default function AppPage() {
   );
 }
 
-// 空状态引导
+// 量化信号面板
+function SignalsPane({ result }: { result: any }) {
+  const scoring = result.scoring;
+  const sentiment = result.sentiment;
+  const indicators = result.indicators;
+  const volumeProfile = result.volumeProfile ?? [];
+
+  // 支撑阻力：从 volumeProfile 取 POC 和低成交量节点
+  const poc = volumeProfile.find((n: any) => n.isPOC);
+  const lvn = volumeProfile.filter((n: any) => n.isLowVolume).slice(0, 2);
+
+  return (
+    <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      {/* 多周期打分明细 */}
+      {scoring?.breakdown && (
+        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 8 }}>⚡ 多周期共振打分</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {scoring.breakdown.map((b: any) => {
+              const isPos = b.weighted >= 0;
+              const color = isPos ? '#059669' : '#dc2626';
+              const pct = Math.min(100, Math.abs(b.weighted) / 5 * 100);
+              return (
+                <div key={b.timeframe}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                    <span style={{ fontSize: 11, color: 'var(--t2)' }}>{b.label}</span>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: 10, color: 'var(--t4)' }}>权重 {(b.weight * 100).toFixed(0)}%</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color }}>
+                        {b.score > 0 ? '+' : ''}{typeof b.score === 'number' ? b.score.toFixed(1) : b.score}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 2, width: `${pct}%`, background: color, transition: 'width 0.7s' }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: 'var(--t3)' }}>综合得分</span>
+            <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: scoring.score > 0 ? '#059669' : scoring.score < 0 ? '#dc2626' : '#94a3b8' }}>
+              {scoring.score > 0 ? '+' : ''}{typeof scoring.score === 'number' ? scoring.score.toFixed(2) : scoring.score}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 多周期技术状态 */}
+      {indicators && (
+        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 8 }}>📈 多周期指标概览</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {(['1d', '4h', '1h', '15m'] as const).map(tf => {
+              const ind = indicators[tf];
+              if (!ind) return null;
+              const rsiColor = ind.rsi > 70 ? '#dc2626' : ind.rsi < 30 ? '#059669' : '#94a3b8';
+              const macdColor = ind.macdState === 'golden' ? '#059669' : ind.macdState === 'dead' ? '#dc2626' : '#94a3b8';
+              const tfLabel: Record<string, string> = { '1d': '日线', '4h': '4H', '1h': '1H', '15m': '15m' };
+              return (
+                <div key={tf} style={{
+                  padding: '8px 10px', borderRadius: 8,
+                  background: 'var(--bg2)', border: '1px solid var(--border)',
+                }}>
+                  <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 4, fontWeight: 600 }}>{tfLabel[tf]}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                    <span style={{ fontSize: 10, color: 'var(--t4)' }}>RSI</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'monospace', color: rsiColor }}>{ind.rsi?.toFixed(0)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 10, color: 'var(--t4)' }}>MACD</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: macdColor }}>
+                      {ind.macdState === 'golden' ? '金叉' : ind.macdState === 'dead' ? '死叉' : '中性'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* POC & 支撑阻力 */}
+      {(poc || lvn.length > 0) && (
+        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 8 }}>🎯 支撑 / 阻力区间</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {poc && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: 7, background: 'rgba(240,180,41,0.08)', border: '1px solid rgba(240,180,41,0.25)' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>POC 控制价</div>
+                  <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 1 }}>成交量最密集区域</div>
+                </div>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--primary)', fontSize: 13 }}>
+                  ${poc.priceMid?.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {lvn.map((node: any, i: number) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: 7, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>低成交量节点 {i + 1}</div>
+                  <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 1 }}>快速穿越区，支撑/阻力较弱</div>
+                </div>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--t2)', fontSize: 12 }}>
+                  ${node.priceMid?.toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 情绪指标摘要 */}
+      {sentiment && (
+        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 8 }}>🌡️ 情绪指标</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, color: 'var(--t4)', marginBottom: 3 }}>恐慌贪婪</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: sentiment.fearGreed > 70 ? '#dc2626' : sentiment.fearGreed < 30 ? '#059669' : '#d97706' }}>
+                {sentiment.fearGreed}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>{sentiment.fearGreedLabel}</div>
+            </div>
+            <div style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, color: 'var(--t4)', marginBottom: 3 }}>资金费率</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 16, color: Math.abs(sentiment.fundingRate) > 0.001 ? '#d97706' : 'var(--t2)' }}>
+                {(sentiment.fundingRate * 100).toFixed(3)}%
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>
+                {sentiment.fundingRate > 0.001 ? '多头过热' : sentiment.fundingRate < -0.0005 ? '空头过热' : '费率平衡'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 信号标签 */}
+      {scoring?.signals && scoring.signals.length > 0 && (
+        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 8 }}>🚦 触发信号</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {scoring.signals.map((sig: string, i: number) => (
+              <span key={i} style={{
+                padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                background: 'rgba(240,180,41,0.1)', color: 'var(--primary)',
+                border: '1px solid rgba(240,180,41,0.3)',
+              }}>{sig}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
 function EmptyPanelGuide({ onAnalyze }: { onAnalyze: () => void }) {
   const t = useT();
   return (
@@ -1548,7 +1742,7 @@ function EmptyPanelGuide({ onAnalyze }: { onAnalyze: () => void }) {
 }
 
 // 威科夫分析面板
-function WyckoffPane({ result }: { result: any }) {
+function WyckoffPane({ result, klines }: { result: any; klines: any[] }) {
   const t = useT();
   const phaseMap: Record<string, { label: string; color: string; bg: string; desc: string }> = {
     accumulation: { label: t.wyckoff.phaseAccumulation, color: '#059669', bg: 'rgba(5,150,105,0.08)', desc: t.wyckoff.phaseAccumulationDesc },
@@ -1745,6 +1939,11 @@ function WyckoffPane({ result }: { result: any }) {
             })}
           </div>
         </div>
+      )}
+
+      {/* VSA 量价信号 */}
+      {klines && klines.length >= 20 && (
+        <VSASignalPanel klines={klines} />
       )}
 
     </div>

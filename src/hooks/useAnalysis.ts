@@ -10,6 +10,7 @@ import { calcRiskPlan } from '../calc/riskControl';
 import { calcScoring } from '../calc/scoring';
 import { generateReport } from '../calc/reportGenerator';
 import { generateAIReport, isLLMConfigured } from '../api/aiAnalysis';
+import { fetchSocialHeat } from '../api/socialApi';
 import { saveStrategy } from '../utils/strategyHistory';
 
 const ALL_TIMEFRAMES: Timeframe[] = ['1d', '4h', '1h', '15m'];
@@ -40,6 +41,7 @@ const INITIAL_STEPS: LoadingStep[] = [
   { id: 13, label: '市场情绪验证', done: false },
   { id: 14, label: '生成策略简报', done: false },
   { id: 15, label: 'AI 大模型深度解读', done: false },
+  { id: 16, label: '社交热度分析', done: false },
 ];
 
 export function useAnalysis() {
@@ -169,7 +171,16 @@ export function useAnalysis() {
       }
       setSteps((prev) => prev.map((s) => s.id === 15 ? { ...s, done: true } : s));
 
-      const finalResult: AnalysisResult = { ...partial, report, aiReport };
+      // Step 16: Social heat
+      let socialHeat: AnalysisResult['socialHeat'] = null;
+      try {
+        socialHeat = await fetchSocialHeat(symbol);
+      } catch {
+        // 不影响主流程
+      }
+      setSteps((prev) => prev.map((s) => s.id === 16 ? { ...s, done: true } : s));
+
+      const finalResult: AnalysisResult = { ...partial, report, aiReport, socialHeat };
 
       // 写入跨币种全局缓存（带 TTL 时间戳）
       cacheRef.current.set(`${symbol}_${activeTimeframe}`, {

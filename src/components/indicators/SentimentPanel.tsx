@@ -1,13 +1,14 @@
 import React from 'react';
-import { SentimentData } from '../../types';
+import { SentimentData, SocialHeatData } from '../../types';
 import { formatFundingRate, getFearGreedColor } from '../../utils/formatters';
 import { useT } from '../../i18n';
 
 interface SentimentPanelProps {
   sentiment: SentimentData;
+  socialHeat?: SocialHeatData | null;
 }
 
-export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment }) => {
+export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment, socialHeat }) => {
   const t = useT();
 
   function getFGInfo(value: number) {
@@ -31,6 +32,24 @@ export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment }) => 
   const r = 42, cx = 60, cy = 54;
   const circumference = Math.PI * r;
   const dashOffset = circumference * (1 - sentiment.fearGreed / 100);
+
+  // 非理性分：恐贪 × 0.7 + 社交情绪 × 0.3
+  const nonRational = socialHeat
+    ? Math.round((sentiment.fearGreed * 0.7 + ((socialHeat.sentiment + 1) * 50) * 0.3))
+    : sentiment.fearGreed;
+  const nonRationalColor = nonRational > 70 ? '#dc2626' : nonRational < 30 ? '#059669' : '#d97706';
+  const nonRationalLabel = nonRational > 70 ? '⚠️ 市场狂热，警惕派发' : nonRational < 30 ? '💧 极度恐惧，关注 Spring' : '⚖️ 情绪中性';
+
+  const heatColor = socialHeat
+    ? (socialHeat.score > 70 ? '#dc2626' : socialHeat.score > 45 ? '#d97706' : '#2563eb')
+    : '#2563eb';
+
+  const sentimentLabel = socialHeat
+    ? (socialHeat.sentiment > 0.2 ? '偏多' : socialHeat.sentiment < -0.2 ? '偏空' : '中性')
+    : '-';
+  const sentimentColor = socialHeat
+    ? (socialHeat.sentiment > 0.2 ? '#059669' : socialHeat.sentiment < -0.2 ? '#dc2626' : '#94a3b8')
+    : '#94a3b8';
 
   return (
     <div className="card" style={{ padding: '14px 18px' }}>
@@ -67,6 +86,7 @@ export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment }) => 
       <div style={{
         background: 'var(--bg-subtle)', borderRadius: 10,
         padding: '10px 12px', border: '1px solid var(--bd-light)',
+        marginBottom: socialHeat ? 10 : 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <div>
@@ -93,6 +113,61 @@ export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment }) => 
           <span style={{ color: 'var(--bear)' }}>{t.sentiment.longProfit}</span>
         </div>
       </div>
+
+      {/* 社交热度（新增） */}
+      {socialHeat && (
+        <>
+          {/* 社交热度分 */}
+          <div style={{
+            background: 'var(--bg-subtle)', borderRadius: 10,
+            padding: '10px 12px', border: '1px solid var(--bd-light)',
+            marginBottom: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>📡 社交热度</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 10, color: sentimentColor, fontWeight: 600 }}>{sentimentLabel}</span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 16, color: heatColor }}>
+                  {socialHeat.score.toFixed(0)}
+                </span>
+              </div>
+            </div>
+            {/* 热度条 */}
+            <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
+              <div style={{
+                height: '100%', borderRadius: 3,
+                width: `${socialHeat.score}%`, background: heatColor,
+                transition: 'width 0.7s',
+              }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--t4)' }}>
+              <span>24h 提及 {socialHeat.mentionCount} 次</span>
+              <span style={{ color: sentimentColor }}>{sentimentLabel}</span>
+            </div>
+          </div>
+
+          {/* 市场非理性分 */}
+          <div style={{
+            background: `${nonRationalColor}08`, borderRadius: 10,
+            padding: '10px 12px', border: `1px solid ${nonRationalColor}30`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>🧠 市场非理性分</div>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 16, color: nonRationalColor }}>
+                {nonRational}
+              </span>
+            </div>
+            <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
+              <div style={{
+                height: '100%', borderRadius: 3,
+                width: `${nonRational}%`, background: nonRationalColor,
+                transition: 'width 0.7s',
+              }} />
+            </div>
+            <div style={{ fontSize: 11, color: nonRationalColor, fontWeight: 600 }}>{nonRationalLabel}</div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -116,6 +116,13 @@ export interface SentimentData {
   fundingRateAlert: boolean;
 }
 
+/** 社交热度数据 */
+export interface SocialHeatData {
+  score: number;        // 0-100 社交热度总分
+  mentionCount: number; // 最近24h提及次数
+  sentiment: number;    // -1~1 情感倾向（正=看涨）
+}
+
 export interface NewsItem {
   title: string;
   titleZh?: string;  // 翻译后的中文标题
@@ -140,6 +147,7 @@ export interface AnalysisResult {
   risk: RiskPlan;
   sentiment: SentimentData;
   news?: NewsItem[];
+  socialHeat?: SocialHeatData | null;
   report: string;
   /** AI 大模型生成的深度报告（仅当后台配置了 LLM 且调用成功时存在） */
   aiReport?: AIStrategyReport;
