@@ -9,7 +9,8 @@ const DecisionCard: React.FC<Props> = ({ result }) => {
   const direction = result.scoring.direction;
   const isLong = direction === 'long';
   const isShort = direction === 'short';
-  const color = isLong ? '#00e676' : isShort ? '#ff5252' : '#94a3b8';
+  const color = isLong ? 'var(--green)' : isShort ? 'var(--red)' : 'var(--t3)';
+  const colorHex = isLong ? '#34C759' : isShort ? '#FF3B30' : '#AEAEB2';
 
   const phaseLabel =
     result.wyckoff.phase === 'accumulation' ? '吸筹阶段' :
@@ -30,83 +31,95 @@ const DecisionCard: React.FC<Props> = ({ result }) => {
   };
 
   return (
-    <div className="bg-[#0b111e] border border-[#1a2340] rounded-xl p-4">
+    <div style={{
+      background: 'var(--bg2)',
+      border: '1px solid var(--border-light)',
+      borderRadius: 'var(--radius-card)',
+      padding: 16,
+      boxShadow: 'var(--shadow-card)',
+    }}>
       {/* 标题行 */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-white">🦞 威科夫PRO策略报告</span>
-        <div className="flex gap-2">
-          <span
-            className="text-[10px] px-2 py-0.5 rounded-full border font-semibold"
-            style={{
-              color,
-              borderColor: `${color}50`,
-              background: `${color}15`,
-            }}
-          >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--t1)' }}>🦞 威科夫PRO策略报告</span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <span style={{
+            fontSize: 11, padding: '3px 10px', borderRadius: 20, border: `1px solid ${colorHex}50`,
+            background: `${colorHex}15`, color, fontWeight: 700,
+          }}>
             {dirTag}
           </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 border border-gray-700 font-mono">
+          <span style={{
+            fontSize: 11, padding: '3px 10px', borderRadius: 20,
+            background: 'var(--bg3)', color: 'var(--t2)', border: '1px solid var(--border)',
+            fontFamily: 'monospace',
+          }}>
             评分 {result.scoring.score.toFixed(1)}
           </span>
         </div>
       </div>
 
       {/* 方向 + 概率条 */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xl font-bold" style={{ color }}>{dirLabel}</span>
-        <span className="text-xs text-gray-400">信心概率 {result.scoring.probability}%</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <span style={{ fontSize: 24, fontWeight: 800, color }}>{dirLabel}</span>
+        <span style={{ fontSize: 13, color: 'var(--t2)' }}>信心概率 {result.scoring.probability}%</span>
       </div>
-      <div className="h-1.5 bg-gray-800 rounded-full mb-3">
-        <div
-          className="h-1.5 rounded-full transition-all"
-          style={{ width: `${result.scoring.probability}%`, backgroundColor: color }}
-        />
+      <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ height: 6, borderRadius: 3, width: `${result.scoring.probability}%`, background: color, transition: 'width 0.7s' }} />
       </div>
 
       {/* 关键参数网格 */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs mb-3">
-        <div className="flex flex-col">
-          <span className="text-gray-500 text-[10px]">入场区间</span>
-          <span className="font-mono text-white">${risk.entryLow.toFixed(0)} – ${risk.entryHigh.toFixed(0)}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: 13, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>入场区间</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--t1)' }}>
+            ${risk.entryLow.toFixed(0)} – ${risk.entryHigh.toFixed(0)}
+          </div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-gray-500 text-[10px]">动态止损 (ATR×2)</span>
-          <span className="font-mono text-red-400">${risk.stopLoss.toFixed(0)}</span>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>动态止损 (ATR×2)</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--red)' }}>${risk.stopLoss.toFixed(0)}</div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-gray-500 text-[10px]">保守止盈 (50%)</span>
-          <span className="font-mono text-green-400">${risk.target1.toFixed(0)}</span>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>保守止盈 (50%)</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--green)' }}>${risk.target1.toFixed(0)}</div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-gray-500 text-[10px]">理想止盈 (30%)</span>
-          <span className="font-mono text-green-400">${risk.target2.toFixed(0)}</span>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>理想止盈 (30%)</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--green)' }}>${risk.target2.toFixed(0)}</div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-gray-500 text-[10px]">激进止盈 (20%)</span>
-          <span className="font-mono text-green-400">移动止损</span>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>激进止盈 (20%)</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 13, color: 'var(--t2)' }}>移动止损</div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-gray-500 text-[10px]">仓位 / 杠杆 / 盈亏比</span>
-          <span className="font-mono text-white">
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>仓位 / 杠杆 / 盈亏比</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: 'var(--t1)' }}>
             {risk.positionSize}% · {risk.leverage}x · {risk.riskReward.toFixed(2)}
-          </span>
+          </div>
         </div>
-        <div className="col-span-2 flex flex-col mt-1">
-          <span className="text-gray-500 text-[10px]">时间止损</span>
-          <span className="font-mono text-white">
+        <div style={{ gridColumn: '1 / -1' }}>
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>时间止损</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--t2)' }}>
             {risk.timeStopHours}小时内未脱离成本区±0.5% → 建议平仓
-          </span>
+          </div>
         </div>
       </div>
 
       {/* 阶段摘要 */}
-      <div className="text-[11px] text-gray-300 mb-3 border-t border-gray-800 pt-3">
+      <div style={{
+        fontSize: 12, color: 'var(--t2)', borderTop: '1px solid var(--border-light)',
+        paddingTop: 10, marginBottom: 12, lineHeight: 1.7,
+      }}>
         📋 {phaseLabel} · 评分维度：威科夫{result.scoring.dims.wyckoff.toFixed(0)} / 量能{result.scoring.dims.volume.toFixed(0)} / 动量{result.scoring.dims.momentum.toFixed(0)} / 情绪{result.scoring.dims.sentiment.toFixed(0)}
       </div>
 
       <button
         onClick={copyReport}
-        className="w-full py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs text-white font-medium transition"
+        style={{
+          width: '100%', padding: '10px 0', borderRadius: 10, border: '1px solid var(--border)',
+          background: 'var(--bg3)', color: 'var(--t1)', fontWeight: 600, fontSize: 13, cursor: 'pointer',
+          transition: 'background 0.15s',
+        }}
       >
         📄 复制策略到剪贴板
       </button>

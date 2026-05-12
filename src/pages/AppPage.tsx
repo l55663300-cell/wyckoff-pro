@@ -8,6 +8,7 @@ import { TIMEFRAME_RISK_CONFIG } from '../calc/riskControl';
 import { CandlestickChart } from '../components/chart/CandlestickChart';
 import { VolumeProfileBar } from '../components/chart/VolumeProfileBar';
 import RightPanel from '../components/layout/RightPanel';
+import EvidenceChain from '../components/layout/EvidenceChain';
 import KeyLevels from '../components/layout/KeyLevels';
 import SentimentCompact from '../components/layout/SentimentCompact';
 import { IndicatorPanel } from '../components/indicators/IndicatorPanel';
@@ -1248,7 +1249,7 @@ export default function AppPage() {
               <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg2)' }}>
                 {([
                   { key: 'ai', label: t.app.tabAI },
-                  { key: 'wyckoff', label: t.app.tabWyckoff },
+                  { key: 'wyckoff', label: '证据链' },
                   { key: 'signals', label: '关键价位' },
                   { key: 'news', label: '市场情绪' },
                 ] as { key: RightPanelTab; label: string }[]).map(t => (
@@ -1278,7 +1279,9 @@ export default function AppPage() {
                 )}
                 {rightTab === 'wyckoff' && (
                   displayResult ? (
-                    <WyckoffPane result={displayResult} klines={displayResult ? chartKlines : []} />
+                    <div style={{ padding: 14 }}>
+                      <EvidenceChain result={displayResult} />
+                    </div>
                   ) : (
                     <EmptyPanelGuide onAnalyze={() => handleAnalyze()} />
                   )
