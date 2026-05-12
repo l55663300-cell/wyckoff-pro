@@ -136,7 +136,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     setUser(userInfo);
     upsertUser(userInfo);
-    void loadSubCache(u.uid);
+    // 延迟加载订阅缓存，避免注册场景下与 activateSubscription 写库竞态
+    void new Promise(r => setTimeout(r, 800)).then(() => loadSubCache(u.uid));
     setPage(u.isAdmin ? 'admin' : 'app');
   }, []);
 

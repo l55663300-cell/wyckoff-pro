@@ -227,9 +227,11 @@ export async function getUserSubscription(uid: string): Promise<UserSubscription
 }
 
 export async function setUserSubscription(sub: UserSubscription): Promise<void> {
-  await supabase.from('user_subscriptions').upsert({
+  // free_trial 不在 subscription_plans 表，plan_id 写 null 避免外键约束报错
+  const planIdForDb = sub.planId === 'free_trial' ? null : sub.planId;
+  const { error } = await supabase.from('user_subscriptions').upsert({
     uid: sub.uid,
-    plan_id: sub.planId,
+    plan_id: planIdForDb,
     plan_name: sub.planName,
     cycle: sub.cycle,
     daily_limit: sub.dailyLimit,
@@ -242,6 +244,7 @@ export async function setUserSubscription(sub: UserSubscription): Promise<void> 
     last_used_hour: sub.lastUsedHour,
     updated_at: new Date().toISOString(),
   });
+  if (error) throw new Error(`[setUserSubscription] ${error.message}`);
 }
 
 export async function activateSubscription(uid: string, plan: SubscriptionPlan): Promise<UserSubscription> {
