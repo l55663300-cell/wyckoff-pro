@@ -1358,7 +1358,7 @@ export default function AppPage() {
               )}
               {mobileTab === 'wyckoff' && (
                 displayResult ? (
-                  <div style={{ paddingBottom: 72 }}><WyckoffPane result={displayResult} /></div>
+                  <div style={{ paddingBottom: 72 }}><WyckoffPane result={displayResult} klines={chartKlines} /></div>
                 ) : (
                   <div style={{ paddingBottom: 72 }}><EmptyPanelGuide onAnalyze={() => handleAnalyze()} /></div>
                 )
