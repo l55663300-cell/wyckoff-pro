@@ -18,14 +18,28 @@ const AIDeepDive: React.FC<Props> = ({ result }) => {
           result.wyckoff.phase === 'markup'        ? '上涨阶段，趋势向上' :
           result.wyckoff.phase === 'distribution'  ? '派发阶段，主力出货' : '下跌阶段，空头主导';
         const dirStr =
-          result.scoring.direction === 'long'  ? '综合信号看多，建议做多布局' :
-          result.scoring.direction === 'short' ? '综合信号看空，建议做空布局' : '信号中性，建议观望';
+          result.scoring.direction === 'long'  ? '综合信号偏多' :
+          result.scoring.direction === 'short' ? '综合信号偏空' : '信号中性';
         const macd = result.primaryIndicators;
         const macdStr = macd.macdState === 'golden' ? 'MACD金叉' : macd.macdState === 'dead' ? 'MACD死叉' : 'MACD中性';
         const rsiStr = macd.rsiState === 'overbought' ? 'RSI超买' : macd.rsiState === 'oversold' ? 'RSI超卖' : `RSI${macd.rsi.toFixed(0)}中性`;
         const poc = result.volumeProfile.find(v => v.isPOC);
         const pocStr = poc ? `POC密集成交区 $${poc.priceMid.toFixed(0)} 构成关键支撑/阻力。` : '';
-        return `当前市场处于${phaseStr}，${dirStr}。技术面：${macdStr}，${rsiStr}，威科夫阶段置信度${(result.wyckoff.phaseConfidence * 100).toFixed(0)}%。${pocStr}综合评分 ${result.scoring.score.toFixed(1)}，信心概率 ${result.scoring.probability}%，请严格遵守止损纪律。`;
+
+        // 按概率三档给出不同力度的操作建议
+        const prob = result.scoring.probability;
+        let advice = '';
+        if (prob >= 70) {
+          advice = result.scoring.direction === 'neutral'
+            ? '多指标共振明显，但方向尚不明朗，建议等待突破方向确认后跟进。'
+            : '技术证据充分，信号共振强，可按计划操作，严守止损。';
+        } else if (prob >= 50) {
+          advice = '结构基本成立但置信度中等，建议轻仓或等待放量突破再确认后入场。';
+        } else {
+          advice = '当前多空信号冲突，方向不明确，建议观望，不宜追单。';
+        }
+
+        return `当前市场处于${phaseStr}，${dirStr}。技术面：${macdStr}，${rsiStr}，威科夫置信度 ${result.wyckoff.phaseConfidence.toFixed(0)}%。${pocStr}综合评分 ${result.scoring.score.toFixed(1)}，信心概率 ${prob}%。${advice}`;
       })();
 
   const rawText = ai

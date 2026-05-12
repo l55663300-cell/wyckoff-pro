@@ -189,8 +189,8 @@ export function analyzeWyckoff(klines: KLine[], indicators: IndicatorValues): Wy
   const compositeManBehavior = describeCompositeman(phase, pattern, volVerification);
 
   return {
-    phase, phaseConfidence: phaseConf,
-    pattern, patternConfidence: patternConf,
+    phase, phaseConfidence: Math.max(0, Math.min(100, phaseConf)),
+    pattern, patternConfidence: Math.max(0, Math.min(100, patternConf)),
     volumeVerification: volVerification,
     compositeManBehavior,
     causeAndEffect,

@@ -93,21 +93,25 @@ function calcMomentumDim(timeframeData: TimeframeData[]): number {
   return Math.round(Math.max(0, Math.min(100, 50 + net * 50)));
 }
 
-// ── 维度4：情绪面（0–100，极度恐慌 → 做多好时机, 极度贪婪 → 危险）──
-// 注：此维度在 calcScoring 外部由 sentiment 数据注入，这里给出一个占位
+// ── 维度4：情绪面（0–100）──
+// 策略：非极端区间(30~70)情绪基本中性不影响方向，只有极端时才有修正作用
 function calcSentimentDim(fearGreed: number, fundingRate: number): number {
   let score = 50;
 
-  // 极度恐慌（<20）→ 逆向看多机会
-  if (fearGreed < 20) score = 80;
-  else if (fearGreed < 35) score = 65;
-  else if (fearGreed < 55) score = 50;
-  else if (fearGreed < 75) score = 38;
-  else score = 25; // 极度贪婪，危险
+  // 极端区间才有意义：极度恐慌(<25)看多机会，极度贪婪(>75)危险
+  if (fearGreed < 15) score = 78;       // 极度恐慌
+  else if (fearGreed < 25) score = 68;  // 恐慌
+  else if (fearGreed < 35) score = 58;  // 偏恐慌，小幅多
+  else if (fearGreed < 65) score = 50;  // 中性区间 → 不影响判断
+  else if (fearGreed < 75) score = 42;  // 偏贪婪，小幅空
+  else if (fearGreed < 85) score = 32;  // 贪婪
+  else score = 22;                       // 极度贪婪，警告
 
-  // 资金费率极端 → 修正
-  if (fundingRate > 0.002) score = Math.max(0, score - 15);        // 多头极度过热
-  else if (fundingRate < -0.001) score = Math.min(100, score + 10); // 空头极度过热，反转机会
+  // 资金费率极端修正（仅在真正极端时才调整）
+  if (fundingRate > 0.003) score = Math.max(0, score - 12);        // 多头极度过热
+  else if (fundingRate > 0.001) score = Math.max(0, score - 5);    // 多头偏热
+  else if (fundingRate < -0.002) score = Math.min(100, score + 10); // 空头极度过热
+  else if (fundingRate < -0.001) score = Math.min(100, score + 5);  // 空头偏热
 
   return Math.round(Math.max(0, Math.min(100, score)));
 }
@@ -202,13 +206,14 @@ export function calcScoring(
     orderbook: dimOrderbook,
   };
 
-  // ── 概率计算：5维加权（35%威科夫 + 25%量价 + 20%消息 + 20%订单簿）──
-  // 注意：多周期技术共振融入 direction 判断，不单独权重以避免与 techScore 重复
+  // ── 概率计算：技术证据70% + 情绪30% ──
+  // 威科夫(35%) + 量价(25%) + 订单簿(10%) = 技术70%
+  // 情绪(30%) 非极端时收敛到50附近，对结果影响有限
   const dimWeightedAvg = (
     dimWyckoff   * 0.35 +
     dimVolume    * 0.25 +
-    dimSentiment * 0.20 +
-    dimOrderbook * 0.20
+    dimOrderbook * 0.10 +
+    dimSentiment * 0.30
   );
 
   // techScore [-10,10] → [0,100]
