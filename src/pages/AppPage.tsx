@@ -1239,6 +1239,7 @@ export default function AppPage() {
                   )}
                 </div>
               </div>
+            </div>
 
             {/* ── 右侧面板（大屏显示，手机隐藏） ── */}
             {!isMobile && (
