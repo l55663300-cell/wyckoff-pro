@@ -34,38 +34,44 @@ const SentimentCompact: React.FC<Props> = ({ result }) => {
     : `社交热度偏空(${socialHeat.score.toFixed(0)})`;
 
   return (
-    <div className="bg-[#0b111e] border border-[#1a2340] rounded-xl p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold text-white">🌡️ 市场情绪</span>
-        <span className="text-[10px] text-gray-500">{extremeTag}</span>
+    <div style={{
+      background: 'var(--bg2)',
+      border: '1px solid var(--border-light)',
+      borderRadius: 'var(--radius-card)',
+      padding: 16,
+      boxShadow: 'var(--shadow-card)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)' }}>🌡️ 市场情绪</span>
+        <span style={{ fontSize: 10, color: 'var(--t3)' }}>{extremeTag}</span>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: fgColor }} />
-          <span className="text-gray-400">恐慌贪婪</span>
-          <span className="ml-auto font-mono" style={{ color: fgColor }}>{sentiment.fearGreed}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', fontSize: 11 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: fgColor, flexShrink: 0, display: 'inline-block' }} />
+          <span style={{ color: 'var(--t3)' }}>恐慌贪婪</span>
+          <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontWeight: 600, color: fgColor }}>{sentiment.fearGreed}</span>
         </div>
-        <div className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
-          <span className="text-gray-400">资金费率</span>
-          <span className={`ml-auto font-mono ${sentiment.fundingRateAlert ? 'text-yellow-400' : 'text-gray-300'}`}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--t3)', flexShrink: 0, display: 'inline-block' }} />
+          <span style={{ color: 'var(--t3)' }}>资金费率</span>
+          <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontWeight: 600, color: sentiment.fundingRateAlert ? 'var(--warn)' : 'var(--t2)' }}>
             {(sentiment.fundingRate * 100).toFixed(3)}%
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: heatColor }} />
-          <span className="text-gray-400">社交热度</span>
-          <span className="ml-auto font-mono" style={{ color: heatColor }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: heatColor, flexShrink: 0, display: 'inline-block' }} />
+          <span style={{ color: 'var(--t3)' }}>社交热度</span>
+          <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontWeight: 600, color: heatColor }}>
             {socialHeat?.score != null ? socialHeat.score.toFixed(0) : '—'}
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
-          <span className="text-gray-400">非理性分</span>
-          <span className="ml-auto font-mono text-gray-300">{nonRational}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--t3)', flexShrink: 0, display: 'inline-block' }} />
+          <span style={{ color: 'var(--t3)' }}>非理性分</span>
+          <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontWeight: 600, color: 'var(--t2)' }}>{nonRational}</span>
         </div>
       </div>
-      <div className="border-t border-gray-800 mt-2 pt-2 text-[10px] text-gray-500">
+      <div style={{ borderTop: '1px solid var(--border-light)', marginTop: 8, paddingTop: 8, fontSize: 10, color: 'var(--t3)' }}>
         {heatSentimentStr} · 非理性分{nonRational > 70 ? '偏高' : nonRational < 30 ? '偏低' : '中性'}
         {sentiment.fundingRateAlert ? ' · ⚠️ 资金费率异常' : ''}
       </div>

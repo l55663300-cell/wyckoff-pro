@@ -14,8 +14,8 @@ const RightPanel: React.FC<Props> = ({ result }) => {
   return (
     <div className="flex flex-col gap-3 p-4 overflow-y-auto h-full" style={{ background: 'var(--bg2)' }}>
       <DecisionCard result={result} />
-      <AIDeepDive result={result} />
       <EvidenceChain result={result} />
+      <AIDeepDive result={result} />
       <KeyLevels result={result} />
       <SentimentCompact result={result} />
     </div>

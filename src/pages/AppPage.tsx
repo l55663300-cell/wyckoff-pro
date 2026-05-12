@@ -8,9 +8,9 @@ import { TIMEFRAME_RISK_CONFIG } from '../calc/riskControl';
 import { CandlestickChart } from '../components/chart/CandlestickChart';
 import { VolumeProfileBar } from '../components/chart/VolumeProfileBar';
 import RightPanel from '../components/layout/RightPanel';
+import KeyLevels from '../components/layout/KeyLevels';
+import SentimentCompact from '../components/layout/SentimentCompact';
 import { IndicatorPanel } from '../components/indicators/IndicatorPanel';
-import { TrendingPanel } from '../components/news/TrendingPanel';
-import { SentimentPanel } from '../components/indicators/SentimentPanel';
 import { VSASignalPanel } from '../components/wyckoff/VSASignalPanel';
 import { WechatAlertModal } from '../components/WechatAlertModal';
 import { WechatPushConfig, loadPushConfig, sendWechatPush, buildEntryAlertMessage } from '../utils/wechatPush';
@@ -1249,8 +1249,8 @@ export default function AppPage() {
                 {([
                   { key: 'ai', label: t.app.tabAI },
                   { key: 'wyckoff', label: t.app.tabWyckoff },
-                  { key: 'signals', label: '量化信号' },
-                  { key: 'news', label: t.app.tabTrending },
+                  { key: 'signals', label: '关键价位' },
+                  { key: 'news', label: '市场情绪' },
                 ] as { key: RightPanelTab; label: string }[]).map(t => (
                   <div key={t.key} onClick={() => setRightTab(t.key)} style={{
                     flex: 1, padding: 9, textAlign: 'center', fontSize: 12, fontWeight: 600,
@@ -1285,18 +1285,21 @@ export default function AppPage() {
                 )}
                 {rightTab === 'signals' && (
                   displayResult ? (
-                    <SignalsPane result={displayResult} />
+                    <div style={{ padding: 14 }}>
+                      <KeyLevels result={displayResult} />
+                    </div>
                   ) : (
                     <EmptyPanelGuide onAnalyze={() => handleAnalyze()} />
                   )
                 )}
                 {rightTab === 'news' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14 }}>
-                    {displayResult && (
-                      <SentimentPanel sentiment={displayResult.sentiment} socialHeat={displayResult.socialHeat} />
-                    )}
-                    <TrendingPanel />
-                  </div>
+                  displayResult ? (
+                    <div style={{ padding: 14 }}>
+                      <SentimentCompact result={displayResult} />
+                    </div>
+                  ) : (
+                    <EmptyPanelGuide onAnalyze={() => handleAnalyze()} />
+                  )
                 )}
               </div>
             </div>
