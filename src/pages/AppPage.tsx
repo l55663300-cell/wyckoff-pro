@@ -7,9 +7,8 @@ import { KLine } from '../types';
 import { TIMEFRAME_RISK_CONFIG } from '../calc/riskControl';
 import { CandlestickChart } from '../components/chart/CandlestickChart';
 import { VolumeProfileBar } from '../components/chart/VolumeProfileBar';
-import { OrderBookHeatmap } from '../components/chart/OrderBookHeatmap';
+import RightPanel from '../components/layout/RightPanel';
 import { IndicatorPanel } from '../components/indicators/IndicatorPanel';
-import { ReportPanel } from '../components/report/ReportPanel';
 import { TrendingPanel } from '../components/news/TrendingPanel';
 import { SentimentPanel } from '../components/indicators/SentimentPanel';
 import { VSASignalPanel } from '../components/wyckoff/VSASignalPanel';
@@ -1195,13 +1194,13 @@ export default function AppPage() {
                 )}
 
                 {/* K线 + VP */}
-                <div style={{ display: 'flex', height: isMobile ? 240 : 300, flexShrink: 0 }}>
+                <div style={{ display: 'flex', height: isMobile ? 240 : 380, flexShrink: 0 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <CandlestickChart klines={chartKlines} height={isMobile ? 240 : 300} symbol={symbol} timeframe={activeTimeframe} />
+                    <CandlestickChart klines={chartKlines} height={isMobile ? 240 : 380} symbol={symbol} timeframe={activeTimeframe} />
                   </div>
                   {displayResult && (
                     <div style={{ width: 72, background: 'var(--bg3)', borderLeft: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
-                      <VolumeProfileBar profile={displayResult.volumeProfile} symbol={symbol} currentPrice={displayResult.price} height={isMobile ? 240 : 300} />
+                      <VolumeProfileBar profile={displayResult.volumeProfile} symbol={symbol} currentPrice={displayResult.price} height={isMobile ? 240 : 380} />
                     </div>
                   )}
                 </div>
@@ -1241,18 +1240,6 @@ export default function AppPage() {
                 </div>
               </div>
 
-              {/* 订单簿 */}
-              {displayResult && (
-                <div style={{
-                  flexShrink: 0,
-                  margin: isMobile ? '8px 8px 0' : '0',
-                  ...(isMobile ? { maxHeight: 200, overflow: 'hidden' } : {}),
-                }}>
-                  <OrderBookHeatmap symbol={symbol} currentPrice={displayResult.price} compact={isMobile} />
-                </div>
-              )}
-            </div>
-
             {/* ── 右侧面板（大屏显示，手机隐藏） ── */}
             {!isMobile && (
             <div style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1283,32 +1270,7 @@ export default function AppPage() {
               >
                 {rightTab === 'ai' && (
                   displayResult ? (
-                    <div style={{ padding: 14 }}>
-                      {/* 结论摘要条 */}
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
-                        padding: '9px 12px', borderRadius: 10,
-                        background: displayResult.scoring.direction === 'long' ? 'rgba(5,150,105,0.08)' : displayResult.scoring.direction === 'short' ? 'rgba(220,38,38,0.08)' : 'rgba(148,163,184,0.08)',
-                        border: `1px solid ${displayResult.scoring.direction === 'long' ? 'rgba(5,150,105,0.25)' : displayResult.scoring.direction === 'short' ? 'rgba(220,38,38,0.25)' : 'rgba(148,163,184,0.25)'}`,
-                      }}>
-                        <span style={{ fontSize: 20 }}>
-                          {displayResult.scoring.direction === 'long' ? '🟢' : displayResult.scoring.direction === 'short' ? '🔴' : '⚪'}
-                        </span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: displayResult.scoring.direction === 'long' ? '#059669' : displayResult.scoring.direction === 'short' ? '#dc2626' : '#94a3b8' }}>
-                            {displayResult.scoring.direction === 'long' ? '看多' : displayResult.scoring.direction === 'short' ? '看空' : '中性观望'}
-                            <span style={{ marginLeft: 6, fontFamily: 'monospace', fontSize: 13 }}>
-                              {displayResult.scoring.probability}%
-                            </span>
-                          </div>
-                          <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>
-                            {displayResult.wyckoff.phase === 'accumulation' ? '吸筹阶段' : displayResult.wyckoff.phase === 'markup' ? '上涨阶段' : displayResult.wyckoff.phase === 'distribution' ? '派发阶段' : '下跌阶段'}
-                            {' · '}评分 {displayResult.scoring.score > 0 ? '+' : ''}{typeof displayResult.scoring.score === 'number' ? displayResult.scoring.score.toFixed(2) : displayResult.scoring.score}
-                          </div>
-                        </div>
-                      </div>
-                      <ReportPanel result={{ ...displayResult, news: [] }} activeTimeframe={activeTimeframe} />
-                    </div>
+                    <RightPanel result={displayResult} />
                   ) : (
                     <EmptyPanelGuide onAnalyze={() => handleAnalyze()} />
                   )
@@ -1349,8 +1311,8 @@ export default function AppPage() {
             >
               {mobileTab === 'report' && (
                 displayResult ? (
-                  <div style={{ padding: 14, paddingBottom: 72 }}>
-                    <ReportPanel result={{ ...displayResult, news: [] }} activeTimeframe={activeTimeframe} />
+                  <div style={{ paddingBottom: 72 }}>
+                    <RightPanel result={displayResult} />
                   </div>
                 ) : (
                   <div style={{ paddingBottom: 72 }}><EmptyPanelGuide onAnalyze={() => handleAnalyze()} /></div>
