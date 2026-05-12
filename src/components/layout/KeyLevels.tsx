@@ -9,67 +9,36 @@ const KeyLevels: React.FC<Props> = ({ result }) => {
   const poc = result.volumeProfile.find(v => v.isPOC);
   const lowVolNodes = result.volumeProfile.filter(v => v.isLowVolume).slice(0, 4);
   const fib = result.fibonacci;
-
-  // 从 aiReport 或 scoring signals 里取阻力/支撑
   const aiKey = result.aiReport?.keyStructure;
-
-  // 斐波那契关键位
   const fibKey618 = fib?.retracements?.find(r => r.level === 0.618);
   const fibKey382 = fib?.retracements?.find(r => r.level === 0.382);
 
+  const row = (dot: string, label: string, value: string, valueColor = '#1C1C1E') => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #E5E5EA', fontSize: 13 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#6C6C70' }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0, display: 'inline-block' }} />
+        {label}
+      </span>
+      <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: valueColor }}>{value}</span>
+    </div>
+  );
+
   return (
-    <div className="bg-[#0b111e] border border-[#1a2340] rounded-xl p-4">
-      <span className="text-sm font-semibold text-white">🏗️ 关键价位</span>
-      <div className="mt-2 space-y-1.5 text-xs">
-        {poc && (
-          <div className="flex justify-between">
-            <span className="text-gray-500">POC 密集成交</span>
-            <span className="font-mono text-white">${poc.priceMid.toFixed(0)}</span>
-          </div>
-        )}
-        {fibKey618 && (
-          <div className="flex justify-between">
-            <span className="text-gray-500 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
-              Fib 61.8%
-            </span>
-            <span className="font-mono text-purple-400">${fibKey618.price.toFixed(0)}</span>
-          </div>
-        )}
-        {fibKey382 && (
-          <div className="flex justify-between">
-            <span className="text-gray-500 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-              Fib 38.2%
-            </span>
-            <span className="font-mono text-blue-400">${fibKey382.price.toFixed(0)}</span>
-          </div>
-        )}
-        {aiKey?.resistance && (
-          <div className="flex justify-between">
-            <span className="text-gray-500 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
-              阻力位
-            </span>
-            <span className="font-mono text-red-400">{aiKey.resistance}</span>
-          </div>
-        )}
-        {aiKey?.support && (
-          <div className="flex justify-between">
-            <span className="text-gray-500 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-              支撑位
-            </span>
-            <span className="font-mono text-green-400">{aiKey.support}</span>
-          </div>
-        )}
+    <div style={{ background: '#FFFFFF', border: '1px solid #E5E5EA', borderRadius: 14, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <span style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E' }}>🏗️ 关键价位</span>
+      <div style={{ marginTop: 10, borderTop: '1px solid #E5E5EA', paddingTop: 6 }}>
+        {poc && row('#007AFF', 'POC 密集成交', `$${poc.priceMid.toFixed(0)}`, '#007AFF')}
+        {fibKey618 && row('#AF52DE', 'Fib 61.8%', `$${fibKey618.price.toFixed(0)}`, '#AF52DE')}
+        {fibKey382 && row('#5AC8FA', 'Fib 38.2%', `$${fibKey382.price.toFixed(0)}`, '#5AC8FA')}
+        {aiKey?.resistance && row('#FF3B30', '阻力位', aiKey.resistance, '#FF3B30')}
+        {aiKey?.support && row('#34C759', '支撑位', aiKey.support, '#34C759')}
         {lowVolNodes.length > 0 && (
-          <div className="text-[10px] text-gray-600 mt-1 border-t border-gray-800 pt-1">
+          <div style={{ fontSize: 12, color: '#AEAEB2', marginTop: 8, paddingTop: 8, borderTop: '1px solid #E5E5EA' }}>
             低成交量节点（价格真空）：{lowVolNodes.map(n => `$${n.priceMid.toFixed(0)}`).join(' / ')}
           </div>
         )}
         {aiKey?.chipZone && (
-          <div className="text-[10px] text-gray-500 mt-1">
+          <div style={{ fontSize: 12, color: '#AEAEB2', marginTop: 4 }}>
             筹码集中区：{aiKey.chipZone}
           </div>
         )}

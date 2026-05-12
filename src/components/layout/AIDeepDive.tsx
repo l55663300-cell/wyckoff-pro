@@ -10,7 +10,6 @@ const AIDeepDive: React.FC<Props> = ({ result }) => {
 
   const ai = result.aiReport;
 
-  // 优先用 AI 大模型摘要，无则本地拼接
   const insight = ai?.summary
     ? ai.summary
     : (() => {
@@ -29,7 +28,6 @@ const AIDeepDive: React.FC<Props> = ({ result }) => {
         return `当前市场处于${phaseStr}，${dirStr}。技术面：${macdStr}，${rsiStr}，威科夫阶段置信度${(result.wyckoff.phaseConfidence * 100).toFixed(0)}%。${pocStr}综合评分 ${result.scoring.score.toFixed(1)}，信心概率 ${result.scoring.probability}%，请严格遵守止损纪律。`;
       })();
 
-  // 原始数据摘要
   const rawText = ai
     ? JSON.stringify(ai, null, 2)
     : `phase=${result.wyckoff.phase}, confidence=${(result.wyckoff.phaseConfidence * 100).toFixed(0)}%, score=${result.scoring.score.toFixed(2)}, probability=${result.scoring.probability}%, direction=${result.scoring.direction}, RSI=${result.primaryIndicators.rsi.toFixed(1)}, MACD=${result.primaryIndicators.macd.toFixed(4)}, ATR=${result.primaryIndicators.atr.toFixed(2)}`;
@@ -37,25 +35,44 @@ const AIDeepDive: React.FC<Props> = ({ result }) => {
   const source = ai ? 'AI大模型' : '本地引擎';
 
   return (
-    <div className="bg-[#0b111e] border border-[#1a2340] rounded-xl p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold text-white">🤖 AI深度解读</span>
-        <span className="text-[10px] text-gray-500">{source}</span>
+    <div style={{
+      background: '#FFFFFF',
+      border: '1px solid #E5E5EA',
+      borderRadius: 14,
+      padding: 18,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E' }}>🤖 策略深度解读</span>
+        <span style={{
+          fontSize: 11, padding: '3px 10px', borderRadius: 20,
+          background: 'rgba(0,122,255,0.08)', color: '#007AFF', fontWeight: 600,
+        }}>{source}</span>
       </div>
-      <p className="text-xs text-gray-300 leading-relaxed">{insight}</p>
-      {ai && ai.wyckoffAnalysis && (
-        <p className="text-[11px] text-gray-400 leading-relaxed mt-2 border-t border-gray-800 pt-2">
+      <p style={{ fontSize: 14, color: '#3C3C43', lineHeight: 1.8, margin: 0 }}>{insight}</p>
+      {ai?.wyckoffAnalysis && (
+        <p style={{
+          fontSize: 13, color: '#6C6C70', lineHeight: 1.7, marginTop: 10,
+          borderTop: '1px solid #E5E5EA', paddingTop: 10,
+        }}>
           {ai.wyckoffAnalysis}
         </p>
       )}
       <button
         onClick={() => setShowRaw(!showRaw)}
-        className="text-[10px] text-cyan-400 hover:text-cyan-300 mt-2 inline-flex items-center gap-1"
+        style={{
+          fontSize: 12, color: '#007AFF', background: 'none', border: 'none',
+          cursor: 'pointer', padding: '6px 0', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4,
+        }}
       >
         {showRaw ? '▼ 收起原始数据' : '▶ 展开原始数据'}
       </button>
       {showRaw && (
-        <pre className="mt-2 p-3 bg-[#0a0f1c] rounded-lg font-mono text-[10px] text-gray-500 leading-relaxed border border-[#1a2340] overflow-x-auto whitespace-pre-wrap break-all">
+        <pre style={{
+          marginTop: 8, padding: 12, background: '#F2F2F7', borderRadius: 8,
+          fontFamily: 'monospace', fontSize: 11, color: '#6C6C70', lineHeight: 1.5,
+          border: '1px solid #E5E5EA', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+        }}>
           {rawText}
         </pre>
       )}
