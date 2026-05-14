@@ -52,6 +52,14 @@ const EvidenceChain: React.FC<Props> = ({ result }) => {
     ind.adxState === 'strong_bear' ? '#FF3B30' :
     ind.adx > 20 ? '#FF9500' : '#AEAEB2';
 
+  // ── 新增：ADL 方向 ──
+  const adlTrend = scoring.dims.adlTrend ?? 0;
+  const adlDirection = adlTrend > 0.5 ? 'long' : adlTrend < -0.5 ? 'short' : 'neutral';
+  const finalDirection = scoring.direction;
+  const isAdlAgainst = (adlDirection === 'long' && finalDirection === 'short') || (adlDirection === 'short' && finalDirection === 'long');
+  const adlStr = adlTrend > 0.5 ? '↑ 累积' : adlTrend < -0.5 ? '↓ 派发' : '— 中性';
+  const adlColor = isAdlAgainst ? '#FF9500' : adlDirection === 'long' ? '#34C759' : adlDirection === 'short' ? '#FF3B30' : '#AEAEB2';
+
   // OI信号：用资金费率推断
   const sentiment = result.sentiment;
   let oiStr = '— 数据不足';
@@ -99,11 +107,17 @@ const EvidenceChain: React.FC<Props> = ({ result }) => {
         {row('复合人行为', compMan)}
         {lowVolNodes.length > 0 && row('低成交量节点', lowVolNodes.map(n => `$${n.priceMid.toFixed(0)}`).join(' / '))}
         {row('量价验证', <span style={{ color: volVerifColor }}>{volVerifStr}</span>)}
-        {/* ── 新增4行 ── */}
+        {/* ── 新增行 ── */}
         {row('成交量方向', <span style={{ color: volumeTrendColor }}>{volumeTrend}</span>)}
+        {row('ADL方向', <span style={{ color: adlColor }}>{adlStr}</span>)}
         {row('趋势强度', <span style={{ color: weeklyTrendColor }}>{weeklyTrendStr}</span>)}
         {row('资金费率/OI', <span style={{ color: oiColor }}>{oiStr}</span>)}
         {row('市场情绪', <span style={{ color: sentimentColor }}>{sentimentStr}</span>)}
+        {scoring.consistency && row('信号一致性',
+          <span style={{ color: scoring.consistency.rating === 'high' ? '#34C759' : scoring.consistency.rating === 'low' ? '#FF3B30' : '#FF9500' }}>
+            {scoring.consistency.rating === 'high' ? '高' : scoring.consistency.rating === 'medium' ? '中' : '低'} · {scoring.consistency.supportCount}/{scoring.consistency.supportCount + scoring.consistency.againstCount}
+          </span>
+        )}
       </div>
     </div>
   );

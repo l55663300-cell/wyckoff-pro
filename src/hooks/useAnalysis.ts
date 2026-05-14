@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { AnalysisResult, Symbol, Timeframe, LoadingStep } from '../types';
 import { fetchKlines, fetchFundingRate, fetchTicker24h } from '../api/binanceApi';
 import { buildSentimentData } from '../api/fearGreedApi';
-import { calcIndicators } from '../calc/indicators';
+import { calcIndicators, calcADL, calcVolumeDelta } from '../calc/indicators';
 import { analyzeWyckoff } from '../calc/wyckoff';
 import { calcVolumeProfile } from '../calc/volumeProfile';
 import { calcFibonacci } from '../calc/fibonacci';
@@ -11,6 +11,7 @@ import { calcScoring } from '../calc/scoring';
 import { generateReport } from '../calc/reportGenerator';
 import { generateAIReport, isLLMConfigured } from '../api/aiAnalysis';
 import { fetchSocialHeat } from '../api/socialApi';
+import { getLatestEMA } from '../calc/ma';
 import { saveStrategy } from '../utils/strategyHistory';
 
 const ALL_TIMEFRAMES: Timeframe[] = ['1d', '4h', '1h', '15m'];
@@ -124,13 +125,37 @@ export function useAnalysis() {
       // Step 9: Composite man (already in wyckoff)
       setSteps((prev) => prev.map((s) => s.id === 9 ? { ...s, done: true } : s));
 
+      // ── 新增：ADL / Volume Delta / EMA50 计算 ──
+      const klines1d = klinesMap['1d'];
+      const klines4h = klinesMap['4h'];
+      const klines1h = klinesMap['1h'];
+
+      // ADL 趋势斜率（日线）
+      const adlSeries = klines1d ? calcADL(klines1d) : [];
+      const adlValues = adlSeries.map(p => p.value);
+      const adlTrend = adlValues.length >= 10
+        ? (adlValues[adlValues.length - 1] - adlValues[0]) / adlValues.length / (Math.abs(adlValues[0]) || 1)
+        : 0;
+
+      // 成交量 Delta（4H × 24根）
+      const volumeDelta = klines4h ? calcVolumeDelta(klines4h, 24) : 0;
+
+      // 构造评分扩展参数
+      const scoringOpts = {
+        fundingRate,
+        adlTrend,
+        volumeDelta,
+        oiQuadrant: 0, // OI 数据暂无 API，预留为 0
+        klines1h,
+      };
+
       // Step 10-11: Scoring
       const timeframeData = ALL_TIMEFRAMES.map((tf) => ({
         timeframe: tf,
         klines: klinesMap[tf],
         indicators: indicatorsMap[tf],
       }));
-      const scoring = calcScoring(timeframeData, wyckoff, { fundingRate });
+      const scoring = calcScoring(timeframeData, wyckoff, scoringOpts);
       setSteps((prev) => prev.map((s) => (s.id === 10 || s.id === 11) ? { ...s, done: true } : s));
 
       // Step 12: Risk control
@@ -142,8 +167,8 @@ export function useAnalysis() {
       setSteps((prev) => prev.map((s) => s.id === 13 ? { ...s, done: true } : s));
 
       const finalScoring = calcScoring(timeframeData, wyckoff, {
+        ...scoringOpts,
         fearGreed: sentiment.fearGreed,
-        fundingRate,
       });
 
       // Step 14: Generate local report

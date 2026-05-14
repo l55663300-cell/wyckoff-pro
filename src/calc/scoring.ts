@@ -1,4 +1,5 @@
-import { KLine, Timeframe, ScoringResult, IndicatorValues, WyckoffAnalysis, ScoringDims } from '../types';
+import { KLine, Timeframe, ScoringResult, IndicatorValues, WyckoffAnalysis, ScoringDims, SignalConsistency } from '../types';
+import { getLatestEMA } from './ma';
 
 interface TimeframeData {
   timeframe: Timeframe;
@@ -22,119 +23,91 @@ const TIMEFRAME_LABELS: Record<Timeframe, string> = {
 
 // ── 维度1：威科夫形态确认度（0–100）──
 function calcWyckoffDim(wyckoff: WyckoffAnalysis): number {
-  let score = wyckoff.phaseConfidence; // 基础：阶段置信度
-
-  // 形态加成
+  let score = wyckoff.phaseConfidence;
   if (wyckoff.pattern === 'spring' || wyckoff.pattern === 'sos') score = Math.min(100, score + 15);
   else if (wyckoff.pattern === 'upthrust' || wyckoff.pattern === 'sow') score = Math.max(0, score - 15);
-
-  // 阶段方向修正（吸筹/上涨看多，派发/下跌看空 → 都代表高确认度，用于概率计算）
   if (wyckoff.phase === 'markup' || wyckoff.phase === 'accumulation') score = Math.min(100, score + 5);
   if (wyckoff.phase === 'markdown' || wyckoff.phase === 'distribution') score = Math.min(100, score + 5);
-
   return Math.round(Math.max(0, Math.min(100, score)));
 }
 
 // ── 维度2：成交量配合度（0–100）──
 function calcVolumeDim(wyckoff: WyckoffAnalysis, klines: KLine[]): number {
   let score = 50;
-
   if (wyckoff.volumeVerification === 'bullish') score = 80;
   else if (wyckoff.volumeVerification === 'bearish') score = 30;
   else if (wyckoff.volumeVerification === 'divergence') score = 25;
   else score = 50;
 
-  // 近3根K线量价关系
   if (klines.length >= 20) {
     const last = klines[klines.length - 1];
     const avg20 = klines.slice(-20).reduce((a, k) => a + k.volume, 0) / 20;
     const isUp = last.close > last.open;
     const isHighVol = last.volume > avg20 * 1.5;
     const isLowVol  = last.volume < avg20 * 0.6;
-
-    if (isUp && isHighVol) score = Math.min(100, score + 10);   // 放量上涨
-    else if (!isUp && isHighVol) score = Math.max(0, score - 10); // 放量下跌
-    else if (isLowVol) score = Math.max(0, score - 5);            // 缩量（不确定）
+    if (isUp && isHighVol) score = Math.min(100, score + 10);
+    else if (!isUp && isHighVol) score = Math.max(0, score - 10);
+    else if (isLowVol) score = Math.max(0, score - 5);
   }
-
   return Math.round(Math.max(0, Math.min(100, score)));
 }
 
 // ── 维度3：多周期技术共振（0–100）──
 function calcMomentumDim(timeframeData: TimeframeData[]): number {
   let bullSignals = 0, bearSignals = 0, totalSignals = 0;
-
-  for (const { indicators: ind, klines } of timeframeData) {
-    // RSI
+  for (const { indicators: ind } of timeframeData) {
     if (ind.rsiState === 'oversold') bullSignals++;
     else if (ind.rsiState === 'overbought') bearSignals++;
     else if (ind.rsi > 55) bullSignals += 0.5;
     else if (ind.rsi < 45) bearSignals += 0.5;
     totalSignals++;
-
-    // MACD
     if (ind.macdState === 'golden') bullSignals++;
     else if (ind.macdState === 'dead') bearSignals++;
     totalSignals++;
-
-    // BB位置
     if (ind.bbPosition === 'below_lower' || ind.bbPosition === 'near_lower') bullSignals++;
     else if (ind.bbPosition === 'above_upper' || ind.bbPosition === 'near_upper') bearSignals++;
     totalSignals++;
-
-    // ADX方向
     if (ind.adxState === 'strong_bull') bullSignals++;
     else if (ind.adxState === 'strong_bear') bearSignals++;
     totalSignals++;
   }
-
   const net = (bullSignals - bearSignals) / Math.max(1, totalSignals);
-  // net ∈ [-1, 1] → 映射到 [0, 100]
   return Math.round(Math.max(0, Math.min(100, 50 + net * 50)));
 }
 
 // ── 维度4：情绪面（0–100）──
-// 策略：非极端区间(30~70)情绪基本中性不影响方向，只有极端时才有修正作用
 function calcSentimentDim(fearGreed: number, fundingRate: number): number {
   let score = 50;
+  if (fearGreed < 15) score = 78;
+  else if (fearGreed < 25) score = 68;
+  else if (fearGreed < 35) score = 58;
+  else if (fearGreed < 65) score = 50;
+  else if (fearGreed < 75) score = 42;
+  else if (fearGreed < 85) score = 32;
+  else score = 22;
 
-  // 极端区间才有意义：极度恐慌(<25)看多机会，极度贪婪(>75)危险
-  if (fearGreed < 15) score = 78;       // 极度恐慌
-  else if (fearGreed < 25) score = 68;  // 恐慌
-  else if (fearGreed < 35) score = 58;  // 偏恐慌，小幅多
-  else if (fearGreed < 65) score = 50;  // 中性区间 → 不影响判断
-  else if (fearGreed < 75) score = 42;  // 偏贪婪，小幅空
-  else if (fearGreed < 85) score = 32;  // 贪婪
-  else score = 22;                       // 极度贪婪，警告
-
-  // 资金费率极端修正（仅在真正极端时才调整）
-  if (fundingRate > 0.003) score = Math.max(0, score - 12);        // 多头极度过热
-  else if (fundingRate > 0.001) score = Math.max(0, score - 5);    // 多头偏热
-  else if (fundingRate < -0.002) score = Math.min(100, score + 10); // 空头极度过热
-  else if (fundingRate < -0.001) score = Math.min(100, score + 5);  // 空头偏热
-
+  if (fundingRate > 0.003) score = Math.max(0, score - 12);
+  else if (fundingRate > 0.001) score = Math.max(0, score - 5);
+  else if (fundingRate < -0.002) score = Math.min(100, score + 10);
+  else if (fundingRate < -0.001) score = Math.min(100, score + 5);
   return Math.round(Math.max(0, Math.min(100, score)));
 }
 
-// ── 单周期技术得分（-5 ~ +5，保持兼容）──
+// ── 单周期技术得分（-5 ~ +5）──
 function scoreTimeframe(ind: IndicatorValues, klines: KLine[]): number {
   let score = 0;
   if (ind.rsiState === 'oversold') score += 2;
   else if (ind.rsiState === 'overbought') score -= 2;
   else if (ind.rsi > 50) score += 1;
   else score -= 1;
-
   if (ind.macdState === 'golden') score += 2;
   else if (ind.macdState === 'dead') score -= 2;
-
   if (ind.bbPosition === 'below_lower') score += 2;
   else if (ind.bbPosition === 'near_lower') score += 1;
   else if (ind.bbPosition === 'above_upper') score -= 2;
   else if (ind.bbPosition === 'near_upper') score -= 1;
-
   if (ind.adxState === 'strong_bull') score += 2;
   else if (ind.adxState === 'strong_bear') score -= 2;
-
   if (klines.length >= 3) {
     const last3 = klines.slice(-3);
     const avgV  = klines.slice(-20).reduce((a, k) => a + k.volume, 0) / 20;
@@ -143,14 +116,64 @@ function scoreTimeframe(ind: IndicatorValues, klines: KLine[]): number {
     if (priceUp && volHigh) score += 1;
     else if (!priceUp && volHigh) score -= 1;
   }
-
   return Math.max(-5, Math.min(5, score));
 }
 
 export interface CalcScoringOptions {
   fearGreed?: number;
   fundingRate?: number;
-  orderbookScore?: number; // 0–100，由 App 层在订单簿数据到位后注入
+  orderbookScore?: number;
+  /** ADL 趋势斜率（日线） */
+  adlTrend?: number;
+  /** 成交量 Delta（4H） */
+  volumeDelta?: number;
+  /** OI 四象限值 */
+  oiQuadrant?: number;
+  /** 用于 EMA50 背景过滤的 1H K线 */
+  klines1h?: KLine[];
+}
+
+/**
+ * 计算信号一致性
+ */
+export function getSignalConsistency(
+  phase: string,
+  adlTrend: number,
+  volumeDelta: number,
+  oiQuadrant: number,
+  finalDirection: 'long' | 'short' | 'neutral',
+  backgroundBias: 'bullish' | 'bearish'
+): SignalConsistency {
+  const againstDetails: string[] = [];
+  let supportCount = 0;
+  let againstCount = 0;
+
+  const phaseDirection = phase === 'markdown' ? 'short' : phase === 'markup' ? 'long' : 'neutral';
+  if (phaseDirection === finalDirection) supportCount++;
+  else if (phaseDirection !== 'neutral') { againstCount++; againstDetails.push('威科夫阶段方向不一致'); }
+
+  const adlDirection = adlTrend > 0.5 ? 'long' : adlTrend < -0.5 ? 'short' : 'neutral';
+  if (adlDirection === finalDirection) supportCount++;
+  else if (adlDirection !== 'neutral') { againstCount++; againstDetails.push(adlTrend > 0 ? 'ADL累积(多头信号)' : 'ADL派发(空头信号)'); }
+
+  const deltaDirection = volumeDelta > 0 ? 'long' : volumeDelta < 0 ? 'short' : 'neutral';
+  if (deltaDirection === finalDirection) supportCount++;
+  else if (deltaDirection !== 'neutral') { againstCount++; againstDetails.push(volumeDelta > 0 ? 'Delta正(主动买入)' : 'Delta负(主动卖出)'); }
+
+  const oiDirection = oiQuadrant > 0.5 ? 'long' : oiQuadrant < -0.5 ? 'short' : 'neutral';
+  if (oiDirection === finalDirection) supportCount++;
+  else if (oiDirection !== 'neutral') { againstCount++; againstDetails.push(oiQuadrant > 0 ? 'OI多头主导' : 'OI空头主导'); }
+
+  const biasDirection = backgroundBias === 'bullish' ? 'long' : 'short';
+  if (biasDirection === finalDirection) supportCount++;
+  else { againstCount++; againstDetails.push('EMA50背景方向相反'); }
+
+  const total = supportCount + againstCount;
+  let rating: SignalConsistency['rating'] = 'medium';
+  if (againstCount === 0) rating = 'high';
+  else if (againstCount >= 2) rating = 'low';
+
+  return { rating, supportCount, againstCount, againstDetails };
 }
 
 export function calcScoring(
@@ -158,9 +181,9 @@ export function calcScoring(
   wyckoff: WyckoffAnalysis,
   opts: CalcScoringOptions = {},
 ): ScoringResult {
-  const { fearGreed = 50, fundingRate = 0, orderbookScore = 50 } = opts;
+  const { fearGreed = 50, fundingRate = 0, orderbookScore = 50, adlTrend = 0, volumeDelta = 0, oiQuadrant = 0, klines1h } = opts;
 
-  // ── 多周期加权得分（兼容 breakdown 展示）──
+  // ── 多周期加权得分 ──
   const breakdown = timeframeData.map(({ timeframe, klines, indicators }) => {
     const rawScore = scoreTimeframe(indicators, klines);
     const weight   = WEIGHTS[timeframe];
@@ -175,7 +198,7 @@ export function calcScoring(
 
   let techScore = breakdown.reduce((a, b) => a + b.weighted, 0);
 
-  // 威科夫相位加成（同原逻辑）
+  // 威科夫相位加成
   if (wyckoff.phase === 'accumulation' && wyckoff.phaseConfidence > 60) techScore += 1;
   else if (wyckoff.phase === 'markup') techScore += 1.5;
   else if (wyckoff.phase === 'distribution' && wyckoff.phaseConfidence > 60) techScore -= 1;
@@ -185,6 +208,30 @@ export function calcScoring(
   else if (wyckoff.pattern === 'upthrust') techScore -= 1;
   else if (wyckoff.pattern === 'sos') techScore += 1.5;
   else if (wyckoff.pattern === 'sow') techScore -= 1.5;
+
+  // ── 新增：ADL 趋势 (±0.5) ──
+  if (adlTrend > 0.5) { techScore += 0.5; }
+  else if (adlTrend < -0.5) { techScore -= 0.5; }
+
+  // ── 新增：Volume Delta (±0.5) ──
+  if (volumeDelta > 0) { techScore += 0.5; }
+  else if (volumeDelta < 0) { techScore -= 0.5; }
+
+  // ── 新增：OI 四象限 (±0.5) ──
+  techScore += oiQuadrant * 0.5;
+
+  // ── 新增：EMA50 背景过滤器 ──
+  let backgroundBias: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+  if (klines1h && klines1h.length >= 50) {
+    const ema50 = getLatestEMA(klines1h, 50);
+    const currentPrice = klines1h[klines1h.length - 1].close;
+    backgroundBias = currentPrice > ema50 ? 'bullish' : 'bearish';
+    if (techScore > 0 && backgroundBias === 'bearish') {
+      techScore *= 0.7;
+    } else if (techScore < 0 && backgroundBias === 'bullish') {
+      techScore *= 0.7;
+    }
+  }
 
   techScore = Math.max(-10, Math.min(10, techScore));
 
@@ -204,28 +251,23 @@ export function calcScoring(
     momentum:  dimMomentum,
     sentiment: dimSentiment,
     orderbook: dimOrderbook,
+    adlTrend,
+    volumeDelta,
+    oiQuadrant,
   };
 
   // ── 概率计算：技术证据70% + 情绪30% ──
-  // 威科夫(35%) + 量价(25%) + 订单簿(10%) = 技术70%
-  // 情绪(30%) 非极端时收敛到50附近，对结果影响有限
   const dimWeightedAvg = (
     dimWyckoff   * 0.35 +
     dimVolume    * 0.25 +
     dimOrderbook * 0.10 +
     dimSentiment * 0.30
   );
-
-  // techScore [-10,10] → [0,100]
   const techNorm = (techScore + 10) / 20 * 100;
-
-  // 融合：技术共振占30%，5维占70%
   const rawProb = techNorm * 0.30 + dimWeightedAvg * 0.70;
 
-  // 方向判断：仍以 techScore 为主，+维度辅助
   const direction = techScore > 2 ? 'long' : techScore < -2 ? 'short' : 'neutral';
 
-  // 概率最终值：多空方向时收窄到 [40,92]，中性时收窄到 [40,65]
   let probability: number;
   if (direction === 'neutral') {
     probability = Math.round(Math.max(40, Math.min(65, rawProb)));
@@ -240,6 +282,20 @@ export function calcScoring(
   else if (techScore < -5) signals.push('多周期强看跌共振');
   if (fearGreed < 25) signals.push('极度恐慌·逆向机会');
   else if (fearGreed > 75) signals.push('极度贪婪·注意风险');
+  if (adlTrend > 0.5) signals.push('ADL累积上升');
+  else if (adlTrend < -0.5) signals.push('ADL派发下降');
+  if (oiQuadrant === 1) signals.push('OI价涨仓增·多头主导');
+  else if (oiQuadrant === -1) signals.push('OI价跌仓增·空头主导');
+
+  // ── 新增：信号一致性 ──
+  const consistency = getSignalConsistency(
+    wyckoff.phase,
+    adlTrend,
+    volumeDelta,
+    oiQuadrant,
+    direction,
+    backgroundBias === 'neutral' ? 'bearish' : backgroundBias,
+  );
 
   return {
     score: parseFloat(techScore.toFixed(2)),
@@ -248,5 +304,6 @@ export function calcScoring(
     breakdown,
     signals,
     dims,
+    consistency,
   };
 }

@@ -79,6 +79,56 @@ function calcADX(klines: KLine[], period = 14): { adx: number; diPlus: number; d
   return { adx: dx, diPlus, diMinus };
 }
 
+/**
+ * 累积/派发线 (ADL)
+ */
+export function calcADL(klines: KLine[]): { time: number; value: number }[] {
+  const adl: { time: number; value: number }[] = [];
+  let prevADL = 0;
+  for (const k of klines) {
+    const range = k.high - k.low;
+    let mfm = 0;
+    if (range > 0) {
+      mfm = ((k.close - k.low) - (k.high - k.close)) / range;
+    }
+    const mfv = mfm * k.volume;
+    prevADL += mfv;
+    adl.push({ time: k.openTime, value: prevADL });
+  }
+  return adl;
+}
+
+/**
+ * 估算成交量 Delta（买方量 - 卖方量）
+ * @param period 最近多少根K线
+ */
+export function calcVolumeDelta(klines: KLine[], period = 24): number {
+  const recent = klines.slice(-period);
+  let delta = 0;
+  for (const k of recent) {
+    const range = k.high - k.low;
+    if (range === 0) continue;
+    const buyVol = k.volume * (k.close - k.low) / range;
+    const sellVol = k.volume * (k.high - k.close) / range;
+    delta += buyVol - sellVol;
+  }
+  return delta;
+}
+
+/**
+ * 成交量加权均价 (VWAP)
+ */
+export function calcVWAP(klines: KLine[]): number {
+  let cumulativeTPV = 0;
+  let cumulativeVol = 0;
+  for (const k of klines) {
+    const typicalPrice = (k.high + k.low + k.close) / 3;
+    cumulativeTPV += typicalPrice * k.volume;
+    cumulativeVol += k.volume;
+  }
+  return cumulativeVol > 0 ? cumulativeTPV / cumulativeVol : klines[klines.length - 1].close;
+}
+
 export function calcIndicators(klines: KLine[]): IndicatorValues {
   const closes = klines.map((k) => k.close);
   const rsi = calcRSI(closes);

@@ -81,6 +81,9 @@ export interface ScoringDims {
   momentum: number;   // 0–100 多周期技术共振
   sentiment: number;  // 0–100 消息面情绪
   orderbook: number;  // 0–100 订单簿筹码压力（运行时注入）
+  adlTrend?: number;  // ADL 趋势斜率
+  volumeDelta?: number; // 成交量 Delta
+  oiQuadrant?: number;  // OI 四象限值
 }
 
 export interface ScoringResult {
@@ -90,6 +93,7 @@ export interface ScoringResult {
   breakdown: ScoringBreakdown[];
   signals: string[];
   dims: ScoringDims;
+  consistency?: SignalConsistency;
 }
 
 export interface WyckoffAnalysis {
@@ -151,6 +155,25 @@ export interface AnalysisResult {
   report: string;
   /** AI 大模型生成的深度报告（仅当后台配置了 LLM 且调用成功时存在） */
   aiReport?: AIStrategyReport;
+}
+
+export interface OIData {
+  openInterest: number;
+  timestamp: number;
+  change1h: number;
+  change24h: number;
+}
+
+export interface ADLPoint {
+  time: number;
+  value: number;
+}
+
+export interface SignalConsistency {
+  rating: 'high' | 'medium' | 'low';
+  supportCount: number;
+  againstCount: number;
+  againstDetails: string[];
 }
 
 export interface LoadingStep {

@@ -9,6 +9,7 @@ const AIDeepDive: React.FC<Props> = ({ result }) => {
   const [showRaw, setShowRaw] = useState(false);
 
   const ai = result.aiReport;
+  const consistency = result.scoring.consistency;
 
   const insight = ai?.summary
     ? ai.summary
@@ -64,6 +65,31 @@ const AIDeepDive: React.FC<Props> = ({ result }) => {
         }}>{source}</span>
       </div>
       <p style={{ fontSize: 14, color: '#3C3C43', lineHeight: 1.8, margin: 0 }}>{insight}</p>
+
+      {/* ── 信号一致性 ── */}
+      {consistency && (
+        <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 8,
+          background: consistency.rating === 'high' ? 'rgba(52,199,89,0.08)' :
+            consistency.rating === 'low' ? 'rgba(255,59,48,0.08)' : 'rgba(255,149,0,0.08)',
+          border: `1px solid ${
+            consistency.rating === 'high' ? 'rgba(52,199,89,0.25)' :
+            consistency.rating === 'low' ? 'rgba(255,59,48,0.25)' : 'rgba(255,149,0,0.25)'}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
+            color: consistency.rating === 'high' ? '#34C759' : consistency.rating === 'low' ? '#FF3B30' : '#FF9500' }}>
+            <span>{consistency.rating === 'high' ? '✅' : consistency.rating === 'low' ? '⚠️' : '⚡'}</span>
+            <span>信号一致性：{consistency.rating === 'high' ? '高' : consistency.rating === 'medium' ? '中' : '低'}</span>
+          </div>
+          <div style={{ fontSize: 11, color: '#6C6C70', marginTop: 4 }}>
+            支持维度 {consistency.supportCount}/{consistency.supportCount + consistency.againstCount}
+          </div>
+          {consistency.againstDetails.length > 0 && (
+            <div style={{ fontSize: 11, color: '#FF3B30', marginTop: 3 }}>
+              ⚠️ {consistency.againstDetails.join('、')}
+            </div>
+          )}
+        </div>
+      )}
+
       {ai?.wyckoffAnalysis && (
         <p style={{
           fontSize: 13, color: '#6C6C70', lineHeight: 1.7, marginTop: 10,
