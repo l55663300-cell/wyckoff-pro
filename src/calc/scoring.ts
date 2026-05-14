@@ -1,4 +1,4 @@
-import { KLine, Timeframe, ScoringResult, IndicatorValues, WyckoffAnalysis, ScoringDims, SignalConsistency } from '../types';
+import { KLine, Timeframe, ScoringResult, IndicatorValues, WyckoffAnalysis, ScoringDims, SignalConsistency, Direction } from '../types';
 import { calcEMA, getLatestEMA } from './ma';
 
 interface TimeframeData {
@@ -320,7 +320,7 @@ export function calcScoring(
   );
 
   // 一致性 low 且支持维度不足 → 强制降级为 neutral
-  let effectiveDirection = direction;
+  let effectiveDirection: Direction = direction;
   if (consistency.rating === 'low' && consistency.supportCount < 2) {
     effectiveDirection = 'neutral';
   }
