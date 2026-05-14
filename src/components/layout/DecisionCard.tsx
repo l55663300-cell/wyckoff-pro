@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnalysisResult } from '../../types';
+import { formatPrice } from '../../utils/formatters';
 
 interface Props {
   result: AnalysisResult;
@@ -91,20 +92,20 @@ const DecisionCard: React.FC<Props> = ({ result }) => {
         <div>
           <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>入场区间</div>
           <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--t1)' }}>
-            ${risk.entryLow.toFixed(0)} – ${risk.entryHigh.toFixed(0)}
+            ${formatPrice(risk.entryLow)} – ${formatPrice(risk.entryHigh)}
           </div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>动态止损 (ATR×2)</div>
-          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--red)' }}>${risk.stopLoss.toFixed(0)}</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--red)' }}>${formatPrice(risk.stopLoss)}</div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>保守止盈 (50%)</div>
-          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--green)' }}>${risk.target1.toFixed(0)}</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--green)' }}>${formatPrice(risk.target1)}</div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>理想止盈 (30%)</div>
-          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--green)' }}>${risk.target2.toFixed(0)}</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: 'var(--green)' }}>${formatPrice(risk.target2)}</div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 3 }}>激进止盈 (20%)</div>
