@@ -1,16 +1,31 @@
+/**
+ * 格式化价格显示：保留原始精度，不做舍入
+ * - 整数部分加千位分隔符
+ * - 小数部分保留原始位数（最多8位）
+ * - 不进行任何 rounding
+ */
 export function formatPrice(price: number, symbol: string = 'ETHUSDT'): string {
-  let decimals: number;
-  if (symbol === 'BTCUSDT' || symbol === 'XAUTUSDT') decimals = 0;
-  else if (symbol === 'XRPUSDT') decimals = 4;
-  else if (symbol === 'SOLUSDT' || symbol === 'BNBUSDT') decimals = 2;
-  else if (price >= 10000) decimals = 0;
-  else if (price >= 100) decimals = 2;
-  else if (price >= 1) decimals = 4;
-  else decimals = 6;
-  return price.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  // 对小数值使用 toFixed 避免科学计数法
+  const str = price < 0.000001 && price !== 0
+    ? price.toFixed(10)
+    : String(price);
+
+  const dotIndex = str.indexOf('.');
+  if (dotIndex === -1) {
+    // 整数 — 加千位分隔符
+    return str.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  const intPart = str.substring(0, dotIndex);
+  const decPart = str.substring(dotIndex + 1);
+  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  // 去除尾部零
+  let cleanedDec = decPart.replace(/0+$/, '');
+  // 最多保留 8 位小数（UI 整洁）
+  if (cleanedDec.length > 8) cleanedDec = cleanedDec.substring(0, 8);
+
+  return cleanedDec.length > 0 ? `${formattedInt}.${cleanedDec}` : formattedInt;
 }
 
 export function formatPercent(value: number, decimals = 2): string {

@@ -96,6 +96,8 @@ export interface ScoringResult {
   signals: string[];
   dims: ScoringDims;
   consistency?: SignalConsistency;
+  /** 入场状态：wait=等待回调入场 ready=准备入场 immediate=可立即入场 */
+  entryStatus?: 'wait' | 'ready' | 'immediate';
 }
 
 export interface WyckoffAnalysis {

@@ -5,6 +5,12 @@ interface Props {
   result: AnalysisResult;
 }
 
+const ENTRY_STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  immediate: { label: '🟢 可立即入场', color: '#16a34a', bg: '#f0fdf4' },
+  ready:     { label: '⏳ 等待回调入场', color: '#ca8a04', bg: '#fefce8' },
+  wait:      { label: '等待回调', color: '#64748b', bg: '#f8fafc' },
+};
+
 const DecisionCard: React.FC<Props> = ({ result }) => {
   const direction = result.scoring.direction;
   const isLong = direction === 'long';
@@ -63,9 +69,22 @@ const DecisionCard: React.FC<Props> = ({ result }) => {
         <span style={{ fontSize: 24, fontWeight: 800, color }}>{dirLabel}</span>
         <span style={{ fontSize: 13, color: 'var(--t2)' }}>信心概率 {result.scoring.probability}%</span>
       </div>
-      <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, marginBottom: 16, overflow: 'hidden' }}>
+      <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, marginBottom: 8, overflow: 'hidden' }}>
         <div style={{ height: 6, borderRadius: 3, width: `${result.scoring.probability}%`, background: color, transition: 'width 0.7s' }} />
       </div>
+
+      {/* 入场状态标签 */}
+      {result.scoring.entryStatus && result.scoring.entryStatus !== 'wait' && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 12, fontWeight: 600,
+          color: ENTRY_STATUS_LABELS[result.scoring.entryStatus].color,
+          background: ENTRY_STATUS_LABELS[result.scoring.entryStatus].bg,
+          borderRadius: 20, padding: '3px 12px', marginBottom: 14,
+        }}>
+          {ENTRY_STATUS_LABELS[result.scoring.entryStatus].label}
+        </div>
+      )}
 
       {/* 关键参数网格 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: 13, marginBottom: 14 }}>

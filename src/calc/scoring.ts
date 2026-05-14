@@ -309,6 +309,20 @@ export function calcScoring(
   if (oiQuadrant === 1) signals.push('OI价涨仓增·多头主导');
   else if (oiQuadrant === -1) signals.push('OI价跌仓增·空头主导');
 
+  // ── 趋势提前预判信号 ──
+  if (wyckoff.phase === 'accumulation' && (wyckoff.pattern === 'sos' || wyckoff.pattern === 'spring')) {
+    signals.push('积累末期+SOS · 上涨趋势或即将启动');
+  }
+  if (wyckoff.phase === 'distribution' && (wyckoff.pattern === 'sow' || wyckoff.pattern === 'upthrust')) {
+    signals.push('派发末期+SOW · 下跌趋势或即将启动');
+  }
+  // ADX 从低位回升 + 方向性偏多
+  if (techScore > 0 && timeframeData.some(td => td.indicators.adx > 20 && td.indicators.adxState !== 'ranging')) {
+    signals.push('ADX低位回升+看多 → 上涨趋势酝酿中');
+  } else if (techScore < 0 && timeframeData.some(td => td.indicators.adx > 20 && td.indicators.adxState !== 'ranging')) {
+    signals.push('ADX低位回升+看空 → 下跌趋势酝酿中');
+  }
+
   // ── 信号一致性 ──
   const consistency = getSignalConsistency(
     wyckoff.phase,
@@ -338,6 +352,16 @@ export function calcScoring(
     probability = Math.round(Math.max(40, Math.min(probCap, rawProb + probAdjust)));
   }
 
+  // ── 入场状态：基于综合评分+概率+趋势方向 ──
+  let entryStatus: 'wait' | 'ready' | 'immediate' = 'wait';
+  if (effectiveDirection !== 'neutral' && probability >= 60) {
+    if (techScore > 3 || consistency?.rating === 'high') {
+      entryStatus = 'immediate';
+    } else {
+      entryStatus = 'ready';
+    }
+  }
+
   return {
     score: parseFloat(techScore.toFixed(2)),
     probability,
@@ -346,5 +370,6 @@ export function calcScoring(
     signals,
     dims,
     consistency,
+    entryStatus,
   };
 }
