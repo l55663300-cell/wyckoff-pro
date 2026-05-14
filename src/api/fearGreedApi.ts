@@ -18,7 +18,7 @@ export async function fetchFearGreed(): Promise<{ current: number; yesterday: nu
   return result;
 }
 
-export async function buildSentimentData(fundingRate: number): Promise<SentimentData> {
+export async function buildSentimentData(fundingRate: number, takerBuyRatio: number = 0.5): Promise<SentimentData> {
   const fg = await fetchFearGreed();
   const change = fg.current - fg.yesterday;
 
@@ -29,5 +29,6 @@ export async function buildSentimentData(fundingRate: number): Promise<Sentiment
     fearGreedLabel: getFearGreedLabel(fg.current),
     fundingRate,
     fundingRateAlert: Math.abs(fundingRate) > 0.001,
+    takerBuyRatio,
   };
 }

@@ -65,6 +65,8 @@ export interface RiskPlan {
   timeStopHours: number;
   rrWarning: boolean;      // 盈亏比 < 1.5，不建议入场
   maxLossRatio: number;    // 仓位×4%，最大允许亏损比例
+  /** 入场区方向校验通过后强制的方向覆盖（主要用于入场区已突破时降级为 neutral） */
+  directionOverride?: Direction;
 }
 
 export interface ScoringBreakdown {
@@ -118,6 +120,8 @@ export interface SentimentData {
   fearGreedLabel: string;
   fundingRate: number;
   fundingRateAlert: boolean;
+  /** Taker 主动买入量占比（0~1，>0.5=主动买盘占优） */
+  takerBuyRatio: number;
 }
 
 /** 社交热度数据 */

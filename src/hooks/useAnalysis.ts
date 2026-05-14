@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { AnalysisResult, Symbol, Timeframe, LoadingStep } from '../types';
-import { fetchKlines, fetchFundingRate, fetchTicker24h } from '../api/binanceApi';
+import { fetchKlines, fetchFundingRate, fetchTicker24h, fetchTakerBuyRatio } from '../api/binanceApi';
 import { buildSentimentData } from '../api/fearGreedApi';
 import { calcIndicators, calcADL, calcVolumeDelta } from '../calc/indicators';
 import { analyzeWyckoff } from '../calc/wyckoff';
@@ -92,10 +92,11 @@ export function useAnalysis() {
 
       setSteps((prev) => prev.map((s) => s.id === 1 ? { ...s, done: true } : s));
 
-      // Step 2: Fetch funding rate and ticker in parallel
-      const [fundingRate, ticker] = await Promise.all([
+      // Step 2: Fetch funding rate, ticker, and taker buy ratio in parallel
+      const [fundingRate, ticker, takerBuyRatio] = await Promise.all([
         fetchFundingRate(symbol),
         fetchTicker24h(symbol),
+        fetchTakerBuyRatio(symbol),
       ]);
       setSteps((prev) => prev.map((s) => s.id === 2 ? { ...s, done: true } : s));
 
@@ -147,6 +148,7 @@ export function useAnalysis() {
         volumeDelta,
         oiQuadrant: 0, // OI 数据暂无 API，预留为 0
         klines1h,
+        takerBuyRatio,
       };
 
       // Step 10-11: Scoring
@@ -163,13 +165,18 @@ export function useAnalysis() {
       setSteps((prev) => prev.map((s) => s.id === 12 ? { ...s, done: true } : s));
 
       // Step 13: Sentiment
-      const sentiment = await buildSentimentData(fundingRate);
+      const sentiment = await buildSentimentData(fundingRate, takerBuyRatio);
       setSteps((prev) => prev.map((s) => s.id === 13 ? { ...s, done: true } : s));
 
       const finalScoring = calcScoring(timeframeData, wyckoff, {
         ...scoringOpts,
         fearGreed: sentiment.fearGreed,
       });
+
+      // 入场区方向校验：如果 risk 判定入场区已突破（支撑/阻力失效），覆盖方向为观望
+      if (risk.directionOverride === 'neutral') {
+        finalScoring.direction = 'neutral';
+      }
 
       // Step 14: Generate local report
       const partial: Omit<AnalysisResult, 'report' | 'aiReport'> = {

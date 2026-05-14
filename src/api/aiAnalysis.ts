@@ -151,6 +151,7 @@ function buildMarketContext(result: AnalysisResult): string {
 - 恐贪指数：${sentiment.fearGreed}（${sentiment.fearGreedLabel}）
 - 24h变化：${sentiment.fearGreedChange >= 0 ? '+' : ''}${sentiment.fearGreedChange.toFixed(1)}
 - 资金费率：${(sentiment.fundingRate * 100).toFixed(4)}%${sentiment.fundingRateAlert ? '（⚠️异常）' : ''}
+- Taker主动买卖量比：${sentiment.takerBuyRatio.toFixed(3)}（${sentiment.takerBuyRatio > 0.55 ? '主动买盘偏多' : sentiment.takerBuyRatio < 0.45 ? '主动卖盘偏空' : '中性'}）
 
 ### 近期重要新闻（最多5条）
 ${newsText || '  暂无新闻数据'}

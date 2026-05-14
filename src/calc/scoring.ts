@@ -1,5 +1,5 @@
 import { KLine, Timeframe, ScoringResult, IndicatorValues, WyckoffAnalysis, ScoringDims, SignalConsistency } from '../types';
-import { getLatestEMA } from './ma';
+import { calcEMA, getLatestEMA } from './ma';
 
 interface TimeframeData {
   timeframe: Timeframe;
@@ -76,7 +76,7 @@ function calcMomentumDim(timeframeData: TimeframeData[]): number {
 }
 
 // ── 维度4：情绪面（0–100）──
-function calcSentimentDim(fearGreed: number, fundingRate: number): number {
+function calcSentimentDim(fearGreed: number, fundingRate: number, takerBuyRatio: number = 0.5): number {
   let score = 50;
   if (fearGreed < 15) score = 78;
   else if (fearGreed < 25) score = 68;
@@ -90,6 +90,13 @@ function calcSentimentDim(fearGreed: number, fundingRate: number): number {
   else if (fundingRate > 0.001) score = Math.max(0, score - 5);
   else if (fundingRate < -0.002) score = Math.min(100, score + 10);
   else if (fundingRate < -0.001) score = Math.min(100, score + 5);
+
+  // Taker 主动买入量比：>0.55 主动买盘占优偏多，<0.45 主动卖盘占优偏空
+  if (takerBuyRatio > 0.6) score = Math.min(100, score + 8);
+  else if (takerBuyRatio > 0.55) score = Math.min(100, score + 4);
+  else if (takerBuyRatio < 0.4) score = Math.max(0, score - 8);
+  else if (takerBuyRatio < 0.45) score = Math.max(0, score - 4);
+
   return Math.round(Math.max(0, Math.min(100, score)));
 }
 
@@ -131,6 +138,8 @@ export interface CalcScoringOptions {
   oiQuadrant?: number;
   /** 用于 EMA50 背景过滤的 1H K线 */
   klines1h?: KLine[];
+  /** Taker 主动买入量占比（0~1，>0.5=主动买盘占优） */
+  takerBuyRatio?: number;
 }
 
 /**
@@ -181,7 +190,7 @@ export function calcScoring(
   wyckoff: WyckoffAnalysis,
   opts: CalcScoringOptions = {},
 ): ScoringResult {
-  const { fearGreed = 50, fundingRate = 0, orderbookScore = 50, adlTrend = 0, volumeDelta = 0, oiQuadrant = 0, klines1h } = opts;
+  const { fearGreed = 50, fundingRate = 0, orderbookScore = 50, adlTrend = 0, volumeDelta = 0, oiQuadrant = 0, klines1h, takerBuyRatio = 0.5 } = opts;
 
   // ── 多周期加权得分 ──
   const breakdown = timeframeData.map(({ timeframe, klines, indicators }) => {
@@ -220,16 +229,28 @@ export function calcScoring(
   // ── 新增：OI 四象限 (±0.5) ──
   techScore += oiQuadrant * 0.5;
 
-  // ── 新增：EMA50 背景过滤器 ──
+  // ── EMA50 背景过滤器（三态斜率：结合价格相对位置 + EMA50自身趋势）──
   let backgroundBias: 'bullish' | 'bearish' | 'neutral' = 'neutral';
-  if (klines1h && klines1h.length >= 50) {
-    const ema50 = getLatestEMA(klines1h, 50);
+  let emaTrend: 'up' | 'down' | 'flat' = 'flat';
+  if (klines1h && klines1h.length >= 55) {
+    const emaArr = calcEMA(klines1h, 50);
+    const lastIdx = emaArr.length - 1;
     const currentPrice = klines1h[klines1h.length - 1].close;
+    const ema50 = emaArr[lastIdx];
+
+    // EMA50 斜率：比较 last 与 last-5 的位置变化
+    const SLOPE_BARS = 5;
+    if (lastIdx >= SLOPE_BARS) {
+      const slopePct = (emaArr[lastIdx] - emaArr[lastIdx - SLOPE_BARS]) / emaArr[lastIdx - SLOPE_BARS] * 100;
+      if (slopePct > 0.1) emaTrend = 'up';
+      else if (slopePct < -0.1) emaTrend = 'down';
+    }
+
     backgroundBias = currentPrice > ema50 ? 'bullish' : 'bearish';
     if (techScore > 0 && backgroundBias === 'bearish') {
-      techScore *= 0.7;
+      techScore *= emaTrend === 'down' ? 0.5 : 0.7;
     } else if (techScore < 0 && backgroundBias === 'bullish') {
-      techScore *= 0.7;
+      techScore *= emaTrend === 'up' ? 0.5 : 0.7;
     }
   }
 
@@ -242,7 +263,7 @@ export function calcScoring(
   const dimWyckoff   = calcWyckoffDim(wyckoff);
   const dimVolume    = calcVolumeDim(wyckoff, primaryKlines);
   const dimMomentum  = calcMomentumDim(timeframeData);
-  const dimSentiment = calcSentimentDim(fearGreed, fundingRate);
+  const dimSentiment = calcSentimentDim(fearGreed, fundingRate, takerBuyRatio);
   const dimOrderbook = Math.max(0, Math.min(100, orderbookScore));
 
   const dims: ScoringDims = {
@@ -256,18 +277,19 @@ export function calcScoring(
     oiQuadrant,
   };
 
-  // ── 概率计算：技术证据70% + 情绪30% ──
+  // ── 概率计算：威科夫为核心，情绪仅作参考 ──
   const dimWeightedAvg = (
-    dimWyckoff   * 0.35 +
-    dimVolume    * 0.25 +
-    dimOrderbook * 0.10 +
-    dimSentiment * 0.30
+    dimWyckoff   * 0.45 +
+    dimVolume    * 0.30 +
+    dimOrderbook * 0.15 +
+    dimSentiment * 0.10
   );
   const techNorm = (techScore + 10) / 20 * 100;
   const rawProb = techNorm * 0.30 + dimWeightedAvg * 0.70;
 
-  const direction = techScore > 2 ? 'long' : techScore < -2 ? 'short' : 'neutral';
+  const direction = techScore > 3 ? 'long' : techScore < -3 ? 'short' : 'neutral';
 
+  // ── 概率基础（稍后根据一致性调整）──
   let probability: number;
   if (direction === 'neutral') {
     probability = Math.round(Math.max(40, Math.min(65, rawProb)));
@@ -287,7 +309,7 @@ export function calcScoring(
   if (oiQuadrant === 1) signals.push('OI价涨仓增·多头主导');
   else if (oiQuadrant === -1) signals.push('OI价跌仓增·空头主导');
 
-  // ── 新增：信号一致性 ──
+  // ── 信号一致性 ──
   const consistency = getSignalConsistency(
     wyckoff.phase,
     adlTrend,
@@ -297,10 +319,29 @@ export function calcScoring(
     backgroundBias === 'neutral' ? 'bearish' : backgroundBias,
   );
 
+  // 一致性 low 且支持维度不足 → 强制降级为 neutral
+  let effectiveDirection = direction;
+  if (consistency.rating === 'low' && consistency.supportCount < 2) {
+    effectiveDirection = 'neutral';
+  }
+
+  // 一致性影响概率：high +5%，low -10%
+  let probAdjust = 0;
+  if (consistency.rating === 'high') probAdjust = 5;
+  else if (consistency.rating === 'low') probAdjust = -10;
+
+  // 一致性低时概率上限收窄至 60%
+  const probCap = (consistency.rating === 'low' && effectiveDirection !== 'neutral') ? 60 : 92;
+  if (effectiveDirection === 'neutral') {
+    probability = Math.round(Math.max(40, Math.min(65, rawProb + probAdjust)));
+  } else {
+    probability = Math.round(Math.max(40, Math.min(probCap, rawProb + probAdjust)));
+  }
+
   return {
     score: parseFloat(techScore.toFixed(2)),
     probability,
-    direction,
+    direction: effectiveDirection,
     breakdown,
     signals,
     dims,

@@ -99,7 +99,26 @@ export function calcRiskPlan(
     stopLoss = price - stopDistance;
   }
 
+  // ── 入场区方向校验 ──
+  // 做空：阻力区已被价格突破（entryHigh < currentPrice）→ 改为观望
+  // 做多：支撑区已被价格跌破（entryLow > currentPrice）→ 改为观望
+  let directionOverride: Direction | undefined;
+  if (direction === 'short' && entryHigh < price * 0.995) {
+    directionOverride = 'neutral';
+  } else if (direction === 'long' && entryLow > price * 1.005) {
+    directionOverride = 'neutral';
+  }
+  if (directionOverride === 'neutral') {
+    const rangeRatio = (atr / price) > 0.02 ? 0.005 : 0.003;
+    entryLow = price * (1 - rangeRatio);
+    entryHigh = price * (1 + rangeRatio);
+    stopLoss = price - stopDistance;
+  }
+
   const { targetConservative, targetIdeal, targetAggressive } = wyckoff.causeAndEffect;
+
+  // 使用有效方向：若入场区校验要求降级为 neutral，后续方向性逻辑全部跳过
+  const effectiveDirection = directionOverride === 'neutral' ? 'neutral' : direction;
 
   // Position sizing: ADX强趋势取上限，否则下限
   const positionSize = adx > 25 ? tfConf.positionMax : tfConf.positionMin;
@@ -112,17 +131,17 @@ export function calcRiskPlan(
   let target2 = targetIdeal;
   let target3 = targetAggressive;
 
-  if (direction === 'short') {
+  if (effectiveDirection === 'short') {
     // 做空止盈必须在入场区间下方
     if (target1 >= entryLow) target1 = entryLow - Math.abs(entryMid - targetConservative || stopDistance * 1.5);
     if (target2 >= target1)  target2 = target1 - stopDistance;
     if (target3 >= target2)  target3 = target2 - stopDistance;
-  } else if (direction === 'long') {
+  } else if (effectiveDirection === 'long') {
     // 做多止盈必须在入场区间上方
     if (target1 <= entryHigh) target1 = entryHigh + Math.abs(targetConservative - entryMid || stopDistance * 1.5);
     if (target2 <= target1)   target2 = target1 + stopDistance;
     if (target3 <= target2)   target3 = target2 + stopDistance;
-  }
+  } // neutral：不进目标修正
 
   const riskDist = Math.abs(entryMid - stopLoss);
 
@@ -135,17 +154,17 @@ export function calcRiskPlan(
 
   // 若 target1 不足最低盈亏比要求，则校正至最小目标
   const rawReward = Math.abs(target1 - entryMid);
-  if (rawReward < minRewardDist) {
-    const correctedTarget = direction === 'long'
+  if (rawReward < minRewardDist && effectiveDirection !== 'neutral') {
+    const correctedTarget = effectiveDirection === 'long'
       ? entryMid + minRewardDist
       : entryMid - minRewardDist;
     target1 = correctedTarget;
     // target2/3 同步按比例校正
     const scale = minRewardDist / Math.max(rawReward, 1);
-    target2 = direction === 'long'
+    target2 = effectiveDirection === 'long'
       ? entryMid + Math.abs(target2 - entryMid) * scale
       : entryMid - Math.abs(target2 - entryMid) * scale;
-    target3 = direction === 'long'
+    target3 = effectiveDirection === 'long'
       ? entryMid + Math.abs(target3 - entryMid) * scale
       : entryMid - Math.abs(target3 - entryMid) * scale;
   }
@@ -166,5 +185,6 @@ export function calcRiskPlan(
     timeStopHours: timeStopMap[timeframe],
     rrWarning,
     maxLossRatio: MAX_LOSS_RATIO,
+    directionOverride,
   };
 }

@@ -129,6 +129,32 @@ export async function fetchKlines(symbol: Symbol, timeframe: Timeframe, limit = 
 }
 
 // ─── 资金费率 ─────────────────────────────────────────────────────────────────
+/**
+ * 获取 Taker 买入量占比（主动买入量 / 总成交量）
+ * 返回 0~1 的比值，>0.5 表示主动买盘占优
+ */
+export async function fetchTakerBuyRatio(symbol: Symbol): Promise<number> {
+  const cacheKey = `taker_${symbol}`;
+  const cached = getCache<number>(cacheKey);
+  if (cached !== null) return cached;
+
+  // Binance Spot 24hr ticker 包含 takerBuyBaseVol
+  try {
+    const resp = await axios.get(`${BN}/api/v3/ticker/24hr`, {
+      params: { symbol }, timeout: 5000,
+    });
+    const vol = parseFloat(resp.data.volume);
+    const takerBuy = parseFloat(resp.data.takerBuyBaseVol);
+    if (vol > 0 && takerBuy >= 0) {
+      const ratio = takerBuy / vol;
+      setCache(cacheKey, ratio, 300);
+      return ratio;
+    }
+  } catch { /* fall through */ }
+
+  return 0.5; // 默认中性
+}
+
 export async function fetchFundingRate(symbol: Symbol): Promise<number> {
   const cacheKey = `funding_${symbol}`;
   const cached = getCache<number>(cacheKey);

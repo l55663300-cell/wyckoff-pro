@@ -114,7 +114,39 @@ export const SentimentPanel: React.FC<SentimentPanelProps> = ({ sentiment, socia
         </div>
       </div>
 
-      {/* 社交热度（新增） */}
+      {/* Taker 主动买卖量比 */}
+      <div style={{
+        background: 'var(--bg-subtle)', borderRadius: 10,
+        padding: '10px 12px', border: '1px solid var(--bd-light)',
+        marginBottom: socialHeat ? 10 : 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ fontSize: 10, color: 'var(--t3)' }}>主动买卖量比 (Taker)</div>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 14,
+            color: sentiment.takerBuyRatio > 0.55 ? 'var(--bull)' : sentiment.takerBuyRatio < 0.45 ? 'var(--bear)' : 'var(--t3)',
+          }}>
+            {sentiment.takerBuyRatio.toFixed(3)}
+          </span>
+        </div>
+        {/* 方向条 */}
+        <div className="level-bar" style={{ marginTop: 2 }}>
+          <div className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${Math.abs(sentiment.takerBuyRatio - 0.5) * 2 * 100}%`,
+              marginLeft: sentiment.takerBuyRatio >= 0.5 ? '50%' : `${50 - Math.abs(sentiment.takerBuyRatio - 0.5) * 2 * 50}%`,
+              background: sentiment.takerBuyRatio > 0.55 ? 'var(--bull)' : sentiment.takerBuyRatio < 0.45 ? 'var(--bear)' : 'var(--t3)',
+            }}
+          />
+          <div className="absolute top-0 bottom-0 w-px" style={{ left: '50%', background: '#e2e8f0' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--t4)' }}>
+          <span style={{ color: 'var(--bear)' }}>主动卖出多</span>
+          <span style={{ color: 'var(--t3)' }}>中性 0.5</span>
+          <span style={{ color: 'var(--bull)' }}>主动买入多</span>
+        </div>
+      </div>
+
+      {/* 社交热度 */}
       {socialHeat && (
         <>
           {/* 社交热度分 */}
