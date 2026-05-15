@@ -65,7 +65,7 @@ export function getLLMConfig(): LLMConfig | null {
           provider: cfg.provider,
           model: cfg.model ?? defaults.model,
           baseUrl: cfg.baseUrl ?? defaults.baseUrl,
-          maxTokens: cfg.maxTokens ?? 2000,
+          maxTokens: cfg.maxTokens ?? 800,
           temperature: cfg.temperature ?? 0.3,
           // 不读取 apiKey，即使老数据里有也忽略
         };

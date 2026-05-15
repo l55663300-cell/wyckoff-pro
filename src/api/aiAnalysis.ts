@@ -17,6 +17,41 @@ import { AnalysisResult } from '../types';
 import { callLLM, getLLMConfig, type LLMConfig } from './llmProvider';
 import { formatPrice } from '../utils/formatters';
 
+// ── AI 报告缓存（5分钟 TTL + 价格变化 < 0.3% 复用） ──
+interface AICacheEntry {
+  report: AIStrategyReport;
+  price: number;
+  cachedAt: number;
+}
+const aiReportCache = new Map<string, AICacheEntry>();
+const AI_CACHE_TTL_MS = 5 * 60 * 1000;
+const AI_CACHE_PRICE_CHANGE = 0.003;
+
+function getAICacheKey(symbol: string, timeframe: string): string {
+  return `${symbol}_${timeframe}`;
+}
+
+function checkAICache(symbol: string, timeframe: string, price: number): AIStrategyReport | null {
+  const key = getAICacheKey(symbol, timeframe);
+  const entry = aiReportCache.get(key);
+  if (!entry) return null;
+  const elapsed = Date.now() - entry.cachedAt;
+  if (elapsed > AI_CACHE_TTL_MS) {
+    aiReportCache.delete(key);
+    return null;
+  }
+  const priceChange = Math.abs(price - entry.price) / entry.price;
+  if (priceChange < AI_CACHE_PRICE_CHANGE) {
+    return { ...entry.report, generatedAt: Date.now() };
+  }
+  return null;
+}
+
+function saveAICache(symbol: string, timeframe: string, price: number, report: AIStrategyReport): void {
+  const key = getAICacheKey(symbol, timeframe);
+  aiReportCache.set(key, { report, price, cachedAt: Date.now() });
+}
+
 export interface AIStrategyReport {
   /** 交易方向：做多 / 做空 / 观望 */
   direction: '做多' | '做空' | '观望';
@@ -77,6 +112,8 @@ export interface AIStrategyReport {
   generatedBy: string;
   /** 生成时间戳 */
   generatedAt: number;
+  /** 庄家行为叙事（1-3句话解释庄家之前的操作 + 为什么给出这个策略） */
+  narrativeLine?: string;
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -93,15 +130,38 @@ const PHASE_PROGRESS: Record<string, number> = {
   markdown: 75,
 };
 
+const PATTERN_MEANING: Record<string, string> = {
+  spring: '弹簧测试（Spring）— 假跌破前低后快速收回，供应枯竭，强做多信号',
+  upthrust: '上冲回落（UpThrust）— 假突破阻力后快速回落，需求不足，强做空信号',
+  sos: '强势突破（SOS）— 放量突破前期高点，确认上升趋势启动',
+  sow: '弱势破位（SOW）— 放量跌破前期低点，确认下降趋势启动',
+  none: '当前无显著威科夫形态',
+};
+
+const KEY_LEVEL_DIRECTION: Record<string, string> = {
+  accumulation: '上方阻力未突破',
+  markup: '回调测试下方支撑',
+  distribution: '下方支撑未跌破',
+  markdown: '反弹测试上方阻力',
+};
+
 /** 将 AnalysisResult 序列化为供 LLM 阅读的结构化上下文 */
 function buildMarketContext(result: AnalysisResult): string {
-  const { symbol, price, wyckoff, scoring, risk, sentiment, news, volumeProfile, primaryIndicators } = result;
+  const { symbol, price, wyckoff, scoring, risk, sentiment, news, volumeProfile, primaryIndicators, indicators } = result;
   const priceStr = formatPrice(price, symbol);
   const poc = volumeProfile.find((n) => n.isPOC);
+  const patternDesc = PATTERN_MEANING[wyckoff.pattern] ?? '无显著形态';
+  const keyLevelDir = KEY_LEVEL_DIRECTION[wyckoff.phase] ?? '方向待确认';
 
   const newsText = (news ?? []).slice(0, 5).map((n, i) =>
     `  ${i + 1}. ${n.titleZh ?? n.title} [${n.source}]`
   ).join('\n');
+
+  // 多周期趋势一致性摘要
+  const tfSummaries = Object.entries(indicators).map(([tf, ind]) => {
+    const trend = ind.adxState === 'strong_bull' ? '强多' : ind.adxState === 'strong_bear' ? '强空' : ind.adxState === 'trending' ? '趋势中' : '震荡';
+    return `${tf}:RSI${ind.rsi.toFixed(0)} ADX${ind.adx.toFixed(0)}(${trend}) MACD${ind.macdState}`;
+  }).join(' | ');
 
   return `
 ## 当前市场数据（${symbol} · ${result.activeTimeframe}）
@@ -115,10 +175,18 @@ function buildMarketContext(result: AnalysisResult): string {
 - 形态：${wyckoff.pattern}（置信度 ${wyckoff.patternConfidence}%）
 - 量价验证：${wyckoff.volumeVerification}
 - 复合人判断：${wyckoff.compositeManBehavior}
-- 积累区间：±$${wyckoff.causeAndEffect.accumulationRange.toFixed(0)}
-- 保守目标：$${formatPrice(wyckoff.causeAndEffect.targetConservative, symbol)}
-- 理想目标：$${formatPrice(wyckoff.causeAndEffect.targetIdeal, symbol)}
-- 激进目标：$${formatPrice(wyckoff.causeAndEffect.targetAggressive, symbol)}
+- Cause-Effect积累区间：±$${wyckoff.causeAndEffect.accumulationRange.toFixed(0)}
+- Cause-Effect目标（保守/理想/激进）：$${formatPrice(wyckoff.causeAndEffect.targetConservative, symbol)} / $${formatPrice(wyckoff.causeAndEffect.targetIdeal, symbol)} / $${formatPrice(wyckoff.causeAndEffect.targetAggressive, symbol)}
+
+### 庄家行为时间线（请据此分析庄家意图，构建 narrativeLine）
+- 当前状态：${PHASE_LABELS[wyckoff.phase]}，出现${patternDesc}
+- 庄家动作描述：${wyckoff.compositeManBehavior}
+- 因果法则宽度：±$${wyckoff.causeAndEffect.accumulationRange.toFixed(0)} → Effect 目标 $${formatPrice(wyckoff.causeAndEffect.targetConservative, symbol)}
+- POC筹码密集区：${poc ? `$${formatPrice(poc.priceMid, symbol)}（相对现价${price > poc.priceMid ? '下方' : '上方'}${(Math.abs(price - poc.priceMid) / price * 100).toFixed(1)}%）` : '未识别'}
+- 当前价位相对积累/派发区：${keyLevelDir}
+
+### 多周期趋势一致性
+${tfSummaries}
 
 ### 多周期技术指标（主周期 ${result.activeTimeframe}）
 - RSI：${primaryIndicators.rsi.toFixed(1)}（${primaryIndicators.rsiState}）
@@ -164,6 +232,14 @@ const CUSTOM_PROMPT_KEY = 'wyckoff_system_prompt_v1';
 const DEFAULT_SYSTEM_PROMPT = `你是一位专业的加密货币量化交易分析师，擅长威科夫理论、技术分析、资金流分析和宏观基本面判断。
 你的任务是根据提供的市场结构化数据，综合基本面（新闻舆情）、技术面（威科夫+指标）、资金流（订单簿+资金费率），给出专业的交易策略报告。
 
+**威科夫核心框架（必须应用在分析中）：**
+1. Cause & Effect（因果法则）：横盘整理区间宽度（Cause）决定后续趋势高度（Effect），宽度越大目标越远。积累/派发越充分趋势越强。
+2. Spring（弹簧测试）：假跌破前低支撑后快速收回，说明供应（卖盘）已枯竭，是积累完成的强做多信号。深度浅→可信度高。
+3. UpThrust（上冲回落）：假突破阻力后快速回落，说明需求（买盘）不足，是派发完成的强做空信号。放量回落→可信度高。
+4. LPS（Last Point of Support 最后支撑点）：积累末期缩量回踩不再创新低，是主力震仓结束的信号，二次入场良机。
+5. LPSY（Last Point of Supply 最后派发点）：派发末期缩量反弹无力过前高，是主力诱多结束的信号，反弹做空良机。
+6. Volume Verification（量价验证）：上涨放量+下跌缩量=健康趋势（牛市特征）；上涨缩量+下跌放量=背离（熊市特征）。放量滞涨/缩量不跌都是关键信号。
+
 **【最高优先级】价格方向铁律，违反即为错误，输出前必须自检：**
 - 做多时：stopLoss < entryLow < entryHigh < target1 < target2（止损在下，止盈在上）
 - 做空时：target2 < target1 < entryLow < entryHigh < stopLoss（止损在上，止盈在下，价格下跌才盈利）
@@ -175,7 +251,8 @@ const DEFAULT_SYSTEM_PROMPT = `你是一位专业的加密货币量化交易分�
 3. direction 只能是"做多"、"做空"、"观望"之一
 4. summary、wyckoffAnalysis、wyckoffConclusion 是中文自然语言，要有逻辑，体现你对多因子交叉的理解
 5. 不要照抄算法给出的数字，用你的判断做微调或确认，并在 summary 中解释原因
-6. 新闻 tag 只能是"利好"、"利空"、"中性"之一`;
+6. 新闻 tag 只能是"利好"、"利空"、"中性"之一
+7. narrativeLine 是必填字段，用1-3句自然语言讲清楚"庄家之前做了什么→市场为什么走到现在的位置→为什么给出这个策略"`;
 
 /** 读取当前生效的 System Prompt（优先使用 AI调教室自定义，否则用默认） */
 function getSystemPrompt(): string {
@@ -250,6 +327,7 @@ ${priceHint}
   "wyckoffConclusion": "（1-2句综合威科夫判断）",
   "sentimentLabel": "市场情绪描述",
   "sentimentScore": 55,
+  "narrativeLine": "（必填）用1-3句自然语言，以庄家（做市商/机构大资金）的视角叙述：之前庄家做了什么动作→市场反应→当前处于什么结构位置→为什么给出这个策略。例如：庄家在过去2周在2200-2300区间反复吸筹，近期缩量回踩2270未破前低（Spring形态确认供应枯竭），随后放量突破2300阻力（SOS启动），目前处于积累完成后的上涨初期，建议顺势做多。",
   "newsSummary": [
     { "title": "新闻标题（中文）", "tag": "利好", "source": "来源", "time": "1小时前", "impact": 3 }
   ],
@@ -270,6 +348,13 @@ export async function generateAIReport(
   const cfg = config ?? getLLMConfig();
   if (!cfg) {
     throw new Error('未配置 LLM，请在管理员后台设置 API Key 和模型');
+  }
+
+  // ── AI 报告缓存检查（5分钟 + 价格变化 < 0.3%） ──
+  const cached = checkAICache(result.symbol, result.activeTimeframe, result.price);
+  if (cached) {
+    cached.generatedBy = '缓存';
+    return cached;
   }
 
   const marketContext = buildMarketContext(result);
@@ -350,6 +435,9 @@ export async function generateAIReport(
   // 补充元信息
   parsed.generatedBy = llmRes.model ?? cfg.model;
   parsed.generatedAt = Date.now();
+
+  // 写入 AI 报告缓存
+  saveAICache(result.symbol, result.activeTimeframe, result.price, parsed);
 
   return parsed;
 }

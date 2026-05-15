@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AnalysisResult } from '../../types';
+import { formatPrice } from '../../utils/formatters';
 
 interface Props {
   result: AnalysisResult;
@@ -25,7 +26,7 @@ const AIDeepDive: React.FC<Props> = ({ result }) => {
         const macdStr = macd.macdState === 'golden' ? 'MACD金叉' : macd.macdState === 'dead' ? 'MACD死叉' : 'MACD中性';
         const rsiStr = macd.rsiState === 'overbought' ? 'RSI超买' : macd.rsiState === 'oversold' ? 'RSI超卖' : `RSI${macd.rsi.toFixed(0)}中性`;
         const poc = result.volumeProfile.find(v => v.isPOC);
-        const pocStr = poc ? `POC密集成交区 $${poc.priceMid.toFixed(0)} 构成关键支撑/阻力。` : '';
+        const pocStr = poc ? `POC密集成交区 $${formatPrice(poc.priceMid)} 构成关键支撑/阻力。` : '';
 
         // 按概率三档给出不同力度的操作建议
         const prob = result.scoring.probability;
@@ -87,6 +88,23 @@ const AIDeepDive: React.FC<Props> = ({ result }) => {
               ⚠️ {consistency.againstDetails.join('、')}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── 庄家行为叙事 ── */}
+      {ai?.narrativeLine && (
+        <div style={{
+          marginTop: 10, padding: '10px 12px', borderRadius: 8,
+          background: 'rgba(240,185,11,0.06)',
+          border: '1px solid rgba(240,185,11,0.2)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#B8860B', marginBottom: 4 }}>
+            <span>📖</span>
+            <span>策略背景 · 庄家行为叙事</span>
+          </div>
+          <p style={{ fontSize: 13, color: '#6C6C70', lineHeight: 1.7, margin: 0 }}>
+            {ai.narrativeLine}
+          </p>
         </div>
       )}
 
