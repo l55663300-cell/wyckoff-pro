@@ -1,29 +1,31 @@
 /**
- * 格式化价格显示：保留原始精度，不做舍入
- * - 整数部分加千位分隔符
- * - 小数部分保留原始位数（最多8位）
- * - 不进行任何 rounding
+ * 根据价格量级决定合理小数位数，消除浮点误差，加千位分隔符
+ * - ≥ 10000 (BTC/XAUT)：0 位
+ * - ≥ 1000  (BTC 低档/部分山寨)：1 位
+ * - ≥ 100   (ETH/BNB/SOL)：2 位
+ * - ≥ 10    (中等价位)：3 位
+ * - ≥ 1     (XRP/OKB 等)：4 位
+ * - ≥ 0.01  ：5 位
+ * - ≥ 0.001 ：6 位
+ * - < 0.001 ：8 位（SHIB 等极低价）
  */
-export function formatPrice(price: number, symbol: string = 'ETHUSDT'): string {
-  // 对小数值使用 toFixed 避免科学计数法
-  const str = price < 0.000001 && price !== 0
-    ? price.toFixed(10)
-    : String(price);
+export function formatPrice(price: number, _symbol: string = ''): string {
+  let decimals: number;
+  const abs = Math.abs(price);
+  if (abs >= 10000)      decimals = 0;
+  else if (abs >= 1000)  decimals = 1;
+  else if (abs >= 100)   decimals = 2;
+  else if (abs >= 10)    decimals = 3;
+  else if (abs >= 1)     decimals = 4;
+  else if (abs >= 0.01)  decimals = 5;
+  else if (abs >= 0.001) decimals = 6;
+  else                   decimals = 8;
 
-  const dotIndex = str.indexOf('.');
-  if (dotIndex === -1) {
-    // 整数 — 加千位分隔符
-    return str.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  }
-
-  const intPart = str.substring(0, dotIndex);
-  const decPart = str.substring(dotIndex + 1);
+  // toFixed 消除浮点误差后去尾部零
+  const fixed = price.toFixed(decimals);
+  const [intPart, decPart = ''] = fixed.split('.');
   const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-  // 去除尾部零
-  let cleanedDec = decPart.replace(/0+$/, '');
-  // 最多保留 8 位小数（UI 整洁）
-  if (cleanedDec.length > 8) cleanedDec = cleanedDec.substring(0, 8);
+  const cleanedDec = decPart.replace(/0+$/, '');
 
   return cleanedDec.length > 0 ? `${formattedInt}.${cleanedDec}` : formattedInt;
 }

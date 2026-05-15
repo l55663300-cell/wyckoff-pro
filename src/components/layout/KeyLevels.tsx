@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnalysisResult } from '../../types';
+import { formatPrice } from '../../utils/formatters';
 
 interface Props {
   result: AnalysisResult;
@@ -27,14 +28,14 @@ const KeyLevels: React.FC<Props> = ({ result }) => {
     <div style={{ background: '#FFFFFF', border: '1px solid #E5E5EA', borderRadius: 14, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
       <span style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E' }}>🏗️ 关键价位</span>
       <div style={{ marginTop: 10, borderTop: '1px solid #E5E5EA', paddingTop: 6 }}>
-        {poc && row('#007AFF', 'POC 密集成交', `$${poc.priceMid.toFixed(0)}`, '#007AFF')}
-        {fibKey618 && row('#AF52DE', 'Fib 61.8%', `$${fibKey618.price.toFixed(0)}`, '#AF52DE')}
-        {fibKey382 && row('#5AC8FA', 'Fib 38.2%', `$${fibKey382.price.toFixed(0)}`, '#5AC8FA')}
+        {poc && row('#007AFF', 'POC 密集成交', `$${formatPrice(poc.priceMid)}`, '#007AFF')}
+        {fibKey618 && row('#AF52DE', 'Fib 61.8%', `$${formatPrice(fibKey618.price)}`, '#AF52DE')}
+        {fibKey382 && row('#5AC8FA', 'Fib 38.2%', `$${formatPrice(fibKey382.price)}`, '#5AC8FA')}
         {aiKey?.resistance && row('#FF3B30', '阻力位', aiKey.resistance, '#FF3B30')}
         {aiKey?.support && row('#34C759', '支撑位', aiKey.support, '#34C759')}
         {lowVolNodes.length > 0 && (
           <div style={{ fontSize: 12, color: '#AEAEB2', marginTop: 8, paddingTop: 8, borderTop: '1px solid #E5E5EA' }}>
-            低成交量节点（价格真空）：{lowVolNodes.map(n => `$${n.priceMid.toFixed(0)}`).join(' / ')}
+            低成交量节点（价格真空）：{lowVolNodes.map(n => `$${formatPrice(n.priceMid)}`).join(' / ')}
           </div>
         )}
         {aiKey?.chipZone && (

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Symbol, DEFAULT_SYMBOLS } from '../../types';
 import { useT } from '../../i18n';
+import { formatPrice } from '../../utils/formatters';
 
 const SYMBOL_META: Record<string, { icon: string; label: string }> = {
   ETHUSDT:  { icon: '💎', label: 'ETH' },
@@ -114,7 +115,7 @@ export const SymbolSidebar: React.FC<SymbolSidebarProps> = ({
         >
           <div className="text-xs font-bold" style={{ color: '#3C4255' }}>{symbol}</div>
           <div className="font-mono font-bold text-white text-base" style={{ letterSpacing: '-0.03em' }}>
-            ${price >= 1000 ? price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : price.toFixed(price >= 1 ? 2 : 4)}
+            ${formatPrice(price)}
           </div>
           <div className="text-xs font-semibold" style={{ color: isPos ? '#00D4AA' : '#F6465D' }}>
             {isPos ? '▲' : '▼'} {Math.abs(priceChange24h).toFixed(2)}%
